@@ -30,18 +30,12 @@ export interface PersonDetails {
 type Opts = { query?: { enabled?: boolean; queryKey?: readonly unknown[] } };
 type Lang = string | undefined;
 
-const KEY = (import.meta.env.VITE_TMDB_API_KEY as string | undefined)?.trim();
-
 async function tmdb<T>(path: string, params: Record<string, unknown> = {}): Promise<T> {
-  if (!KEY) throw new Error('Missing VITE_TMDB_API_KEY');
-  const url = new URL(`https://api.themoviedb.org/3${path}`);
+  const url = new URL(`/api/tmdb${path}`, window.location.origin);
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
   });
-  const headers: Record<string, string> = {};
-  if (KEY.length > 40) headers.Authorization = `Bearer ${KEY}`;
-  else url.searchParams.set('api_key', KEY);
-  const res = await fetch(url.toString(), { headers });
+  const res = await fetch(url.toString());
   if (!res.ok) throw new Error(`TMDB ${res.status}`);
   return res.json() as Promise<T>;
 }
