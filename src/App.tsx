@@ -15,7 +15,7 @@ import NotFound from '@/pages/not-found';
 import '../src/index.css';
 
 const client = new QueryClient();
-const img = (path?: string | null, size = 'w500') => path ? `https://image.tmdb.org/t/p/${size}${path}` : '';
+const img = (path?: string | null, size = 'w500') => path ? `/img/${size}${path}` : '';
 const titleOf = (item: Partial<MediaItem> | Record<string, unknown>) => String(item.title || item.name || item.original_title || item.original_name || 'Untitled');
 const dateOf = (item: Partial<MediaItem> | Record<string, unknown>) => String(item.release_date || item.first_air_date || '');
 const yearOf = (item: Partial<MediaItem> | Record<string, unknown>) => dateOf(item).slice(0, 4);
