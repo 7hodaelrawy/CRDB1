@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Link, Route, Switch, useLocation, useParams, useRoute } from 'wouter';
-import { ArrowRight, CalendarDays, CircleAlert, Clapperboard, Film, Languages, Moon, Play, Search, Star, Sun, Tv } from 'lucide-react';
+import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, CircleAlert, Clapperboard, Film, Languages, Moon, Play, Search, Star, Sun, Tv } from 'lucide-react';
 import {
   useGetCinemaHome, useDiscoverCinemaTitles, useSearchCinema, useGetCinemaGenres, useGetCinemaTitle,
   useGetCinemaPerson, useGetCinemaSeason, getDiscoverCinemaTitlesQueryKey, getSearchCinemaQueryKey,
@@ -87,12 +87,49 @@ function Section({ title, subtitle, items, kind, browseLabel = copy.en.browse }:
 function HomePage() {
   const { lang, t } = usePreferences();
   const q = useGetCinemaHome({ language: lang });
-  const hero = q.data?.hero?.[0];
+  const heroes = q.data?.hero || [];
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (heroes.length < 2) return;
+    const timer = window.setInterval(() => setIdx(i => (i + 1) % heroes.length), 7000);
+    return () => window.clearInterval(timer);
+  }, [heroes.length]);
+  const go = (d: number) => setIdx(i => (i + d + heroes.length) % heroes.length);
+  const hero = heroes.length ? heroes[idx % heroes.length] : undefined;
+  const upNext = heroes.length > 1 ? Array.from({ length: Math.min(3, heroes.length - 1) }, (_, n) => heroes[(idx + n + 1) % heroes.length]) : [];
+  const top10 = (q.data?.sections?.find(s => s.id === 'trending')?.items || []).slice(0, 10);
   return <PageFrame>
     {q.isLoading ? <div className="skeleton" style={{ height: 470, marginTop: 22, borderRadius: 26 }} /> : q.isError ? <StateBlock error title={t.failed} text={t.noResultsSub} action={t.retry} onAction={() => q.refetch()} /> : <>
-      {hero && <section className="hero">
-        {img(hero.backdrop_path, 'original') && <img className="hero-image" src={img(hero.backdrop_path, 'original')} alt="" />}
-        <div className="hero-content"><div className="hero-label"><span style={{ width: 7, height: 7, borderRadius: 9, background: 'currentColor' }} />{t.heroEyebrow}</div><h1>{titleOf(hero)}</h1><div className="hero-meta">{ratingOf(hero) > 0 && <span className="score"><Star size={13} fill="currentColor" /> {ratingOf(hero).toFixed(1)}</span>}<span>{yearOf(hero)}</span><span>{hero.media_type === 'tv' ? t.tv : t.movies}</span></div><p>{hero.overview || t.allTime}</p><Link href={entryPath(hero)} className="cta" data-testid="button-hero-title"><Play size={15} fill="currentColor" />{t.explore}</Link></div>
+      {hero && <section className="imdb-hero">
+        <div className="imdb-stage">
+          {img(hero.backdrop_path, 'original') && <img key={hero.id} className="imdb-stage-img" src={img(hero.backdrop_path, 'original')} alt="" />}
+          <div className="imdb-stage-shade" />
+          {heroes.length > 1 && <>
+            <button className="imdb-arrow prev" onClick={() => go(-1)} aria-label="Previous"><ChevronLeft size={26} /></button>
+            <button className="imdb-arrow next" onClick={() => go(1)} aria-label="Next"><ChevronRight size={26} /></button>
+          </>}
+          <div className="imdb-stage-info">
+            {img(hero.poster_path, 'w342') && <Link href={entryPath(hero)}><img className="imdb-stage-poster" src={img(hero.poster_path, 'w342')} alt={titleOf(hero)} /></Link>}
+            <div className="imdb-stage-text">
+              <Link href={entryPath(hero)} className="imdb-play"><Play size={22} fill="currentColor" /></Link>
+              <div>
+                <h1>{titleOf(hero)}</h1>
+                <div className="imdb-stage-meta">{ratingOf(hero) > 0 && <span className="score"><Star size={13} fill="currentColor" /> {ratingOf(hero).toFixed(1)}</span>}<span>{yearOf(hero)}</span><span>{hero.media_type === 'tv' ? t.tv : t.movies}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <aside className="imdb-side">
+          <h3>{lang === 'ar' ? 'التالي' : 'Up next'}</h3>
+          {upNext.map(item => <Link key={item.id} href={entryPath(item)} className="imdb-side-item">
+            {img(item.poster_path, 'w185') ? <img src={img(item.poster_path, 'w185')} alt="" /> : <div className="imdb-side-ph" />}
+            <div><strong>{titleOf(item)}</strong><span><Star size={11} fill="currentColor" /> {ratingOf(item).toFixed(1)} · {yearOf(item)}</span></div>
+          </Link>)}
+        </aside>
+      </section>}
+      {top10.length > 0 && <section className="section">
+        <div className="section-head"><div><h2 className="section-title">{lang === 'ar' ? 'الأفضل ١٠ هذا الأسبوع' : 'Top 10 this week'}</h2></div></div>
+        <div className="top10-row">{top10.map((item, i) => <div className="top10-item" key={`${item.media_type}-${item.id}`}><span className="top10-rank">{i + 1}</span><PosterCard item={item} kind={item.media_type || undefined} /></div>)}</div>
       </section>}
       {!hero && !q.data?.sections?.length && <StateBlock title={t.noResults} text={t.noResultsSub} />}
       {q.data?.sections?.map(section => <Section key={section.id} title={section.title} items={section.items} kind={section.mediaType === 'person' ? undefined : section.mediaType} browseLabel={t.browse} />)}
