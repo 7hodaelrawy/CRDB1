@@ -1,19 +1,21 @@
-interface Env { TMDB_API_KEY: string }
+interface Env { TMDB_KEY?: string; TMDB_API_KEY?: string }
+
+const getKey = (env: Env) => (env.TMDB_KEY || env.TMDB_API_KEY || '').trim();
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // تشخيص مؤقت: بيعرض طول المفتاح بس، مش المفتاح نفسه
+    // تشخيص مؤقت: بيعرض طول المفتاح بس
     if (url.pathname === '/api/debug') {
-      const k = (env.TMDB_API_KEY || '').trim();
+      const k = getKey(env);
       return Response.json({ hasKey: k.length > 0, length: k.length, kind: k.length > 40 ? 'token' : 'v3-key' });
     }
 
     if (url.pathname.startsWith('/api/tmdb/')) {
       const target = new URL('https://api.themoviedb.org/3/' + url.pathname.slice('/api/tmdb/'.length));
       url.searchParams.forEach((v, k) => target.searchParams.set(k, v));
-      const key = (env.TMDB_API_KEY || '').trim();
+      const key = getKey(env);
       const headers: Record<string, string> = {};
       if (key.length > 40) headers.Authorization = `Bearer ${key}`;
       else target.searchParams.set('api_key', key);
