@@ -75,7 +75,7 @@ export function useGetCinemaHome(params: { language?: Lang }, opts?: Opts) {
         throw new Error('No data from TMDB');
       }
       const tr = trending.filter(i => i.media_type !== 'person');
-      const hero = tr.filter(i => i.backdrop_path).slice(0, 1);
+      const hero = tr.filter(i => i.backdrop_path).slice(0, 6);
       const today = new Date().toISOString().slice(0, 10);
       const released = nowPlaying
         .filter(i => i.poster_path && String(i.release_date || '') <= today)
