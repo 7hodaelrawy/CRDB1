@@ -1,13 +1,9 @@
-interface Env {
-  TMDB_API_KEY: string;
-  ASSETS: Fetcher;
-}
+interface Env { TMDB_API_KEY: string }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // 1. طلبات الأفلام (API)
     if (url.pathname.startsWith('/api/tmdb/')) {
       const target = new URL('https://api.themoviedb.org/3/' + url.pathname.slice('/api/tmdb/'.length));
       url.searchParams.forEach((v, k) => target.searchParams.set(k, v));
@@ -22,7 +18,6 @@ export default {
       });
     }
 
-    // 2. طلبات الصور
     if (url.pathname.startsWith('/img/')) {
       const res = await fetch('https://image.tmdb.org/t/p/' + url.pathname.slice(5), { cf: { cacheTtl: 86400, cacheEverything: true } });
       return new Response(res.body, {
@@ -31,19 +26,6 @@ export default {
       });
     }
 
-    // 3. عرض الموقع (الملفات) وحقن كود الـ CSP
-    try {
-      const res = await env.ASSETS.fetch(request);
-      const newHeaders = new Headers(res.headers);
-      // السطر ده هو اللي بيفك الحظر
-      newHeaders.set('Content-Security-Policy', "script-src 'self' 'unsafe-eval' 'unsafe-inline' https:;");
-      return new Response(res.body, {
-        status: res.status,
-        headers: newHeaders,
-      });
-    } catch (e) {
-      // لو الملف مش موجود
-      return new Response('Not found', { status: 404 });
-    }
+    return new Response('Not found', { status: 404 });
   },
 };
