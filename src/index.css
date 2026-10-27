@@ -94,3 +94,7 @@ a { color: inherit; text-decoration: none; }
   .imdb-stage-poster { display: none; }
   .imdb-arrow { width: 34px; height: 56px; }
 }
+/* منع تمدد البوسترات لما القسم فيه عناصر قليلة */
+.poster-row > .poster-card {
+  max-width: 170px;
+}
