@@ -60,29 +60,37 @@ export function useGetCinemaHome(params: { language?: Lang }, opts?: Opts) {
     queryKey: ['cinema', 'home', params],
     ...opts?.query,
     queryFn: async () => {
-      const get = async (path: string): Promise<MediaItem[]> => {
+      const today = new Date().toISOString().slice(0, 10);
+      const get = async (path: string, extra: Record<string, unknown> = {}): Promise<MediaItem[]> => {
         try {
-          return (await tmdb<Paged>(path, { language })).results || [];
+          return (await tmdb<Paged>(path, { language, ...extra })).results || [];
         } catch {
           return [];
         }
       };
-      const [trending, nowPlaying, upcoming, onAir, movies, tv, topMovies, topTv] = await Promise.all([
-        get('/trending/all/week'), get('/movie/now_playing'), get('/movie/upcoming'), get('/tv/on_the_air'),
-        get('/movie/popular'), get('/tv/popular'), get('/movie/top_rated'), get('/tv/top_rated'),
+      const soonParams = { 'primary_release_date.gte': today, sort_by: 'popularity.desc' };
+      const [trending, nowPlaying, upcoming, soon1, soon2, onAir, movies, tv, topMovies, topTv] = await Promise.all([
+        get('/trending/all/week'), get('/movie/now_playing'), get('/movie/upcoming'),
+        get('/discover/movie', { ...soonParams, page: 1 }), get('/discover/movie', { ...soonParams, page: 2 }),
+        get('/tv/on_the_air'), get('/movie/popular'), get('/tv/popular'), get('/movie/top_rated'), get('/tv/top_rated'),
       ]);
       if (![trending, nowPlaying, upcoming, onAir, movies, tv, topMovies, topTv].some(a => a.length)) {
         throw new Error('No data from TMDB');
       }
       const tr = trending.filter(i => i.media_type !== 'person');
       const hero = tr.filter(i => i.backdrop_path).slice(0, 6);
-      const today = new Date().toISOString().slice(0, 10);
       const released = nowPlaying
         .filter(i => i.poster_path && String(i.release_date || '') <= today)
         .sort((a, b) => String(b.release_date || '').localeCompare(String(a.release_date || '')));
-      const soon = upcoming
-        .filter(i => i.poster_path && String(i.release_date || '') > today)
-        .sort((a, b) => String(a.release_date || '').localeCompare(String(b.release_date || '')));
+      const seen = new Set<number>();
+      const soon = [...upcoming, ...soon1, ...soon2]
+        .filter(i => {
+          if (seen.has(i.id)) return false;
+          seen.add(i.id);
+          return i.poster_path && String(i.release_date || '') > today;
+        })
+        .sort((a, b) => String(a.release_date || '').localeCompare(String(b.release_date || '')))
+        .slice(0, 20);
       return {
         hero,
         sections: [
