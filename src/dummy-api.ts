@@ -61,25 +61,27 @@ export function useGetCinemaHome(params: { language?: Lang }, opts?: Opts) {
     queryKey: ['cinema', 'home', params],
     ...opts?.query,
     queryFn: async () => {
+      const get = async (path: string): Promise<MediaItem[]> => {
+        try {
+          return (await tmdb<Paged>(path, { language })).results || [];
+        } catch {
+          return [];
+        }
+      };
       const [trending, nowPlaying, upcoming, onAir, movies, tv, topMovies, topTv] = await Promise.all([
-        tmdb<Paged>('/trending/all/week', { language }),
-        tmdb<Paged>('/movie/now_playing', { language }),
-        tmdb<Paged>('/movie/upcoming', { language }),
-        tmdb<Paged>('/tv/on_the_air', { language }),
-        tmdb<Paged>('/movie/popular', { language }),
-        tmdb<Paged>('/tv/popular', { language }),
-        tmdb<Paged>('/movie/top_rated', { language }),
-        tmdb<Paged>('/tv/top_rated', { language }),
+        get('/trending/all/week'), get('/movie/now_playing'), get('/movie/upcoming'), get('/tv/on_the_air'),
+        get('/movie/popular'), get('/tv/popular'), get('/movie/top_rated'), get('/tv/top_rated'),
       ]);
-      const tr = trending.results.filter(i => i.media_type !== 'person');
+      if (![trending, nowPlaying, upcoming, onAir, movies, tv, topMovies, topTv].some(a => a.length)) {
+        throw new Error('No data from TMDB');
+      }
+      const tr = trending.filter(i => i.media_type !== 'person');
       const hero = tr.filter(i => i.backdrop_path).slice(0, 1);
       const today = new Date().toISOString().slice(0, 10);
-      const newestFirst = (a: MediaItem, b: MediaItem) =>
-        String(b.release_date || '').localeCompare(String(a.release_date || ''));
-      const released = nowPlaying.results
+      const released = nowPlaying
         .filter(i => i.poster_path && String(i.release_date || '') <= today)
-        .sort(newestFirst);
-      const soon = upcoming.results
+        .sort((a, b) => String(b.release_date || '').localeCompare(String(a.release_date || '')));
+      const soon = upcoming
         .filter(i => i.poster_path && String(i.release_date || '') > today)
         .sort((a, b) => String(a.release_date || '').localeCompare(String(b.release_date || '')));
       return {
@@ -87,12 +89,12 @@ export function useGetCinemaHome(params: { language?: Lang }, opts?: Opts) {
         sections: [
           { id: 'now-playing', title: ar ? 'في السينما الآن' : 'In theaters now', mediaType: 'movie', items: released },
           { id: 'upcoming', title: ar ? 'قريباً في السينما' : 'Coming soon', mediaType: 'movie', items: soon },
-          { id: 'on-air', title: ar ? 'مسلسلات تُعرض حالياً' : 'Currently airing series', mediaType: 'tv', items: onAir.results },
+          { id: 'on-air', title: ar ? 'مسلسلات تُعرض حالياً' : 'Currently airing series', mediaType: 'tv', items: onAir },
           { id: 'trending', title: ar ? 'الرائج هذا الأسبوع' : 'Trending this week', items: tr },
-          { id: 'movies', title: ar ? 'أفلام شائعة' : 'Popular movies', mediaType: 'movie', items: movies.results },
-          { id: 'tv', title: ar ? 'مسلسلات شائعة' : 'Popular series', mediaType: 'tv', items: tv.results },
-          { id: 'top-movies', title: ar ? 'أفضل الأفلام تقييماً' : 'Top rated movies', mediaType: 'movie', items: topMovies.results },
-          { id: 'top-tv', title: ar ? 'أفضل المسلسلات تقييماً' : 'Top rated series', mediaType: 'tv', items: topTv.results },
+          { id: 'movies', title: ar ? 'أفلام شائعة' : 'Popular movies', mediaType: 'movie', items: movies },
+          { id: 'tv', title: ar ? 'مسلسلات شائعة' : 'Popular series', mediaType: 'tv', items: tv },
+          { id: 'top-movies', title: ar ? 'أفضل الأفلام تقييماً' : 'Top rated movies', mediaType: 'movie', items: topMovies },
+          { id: 'top-tv', title: ar ? 'أفضل المسلسلات تقييماً' : 'Top rated series', mediaType: 'tv', items: topTv },
         ],
       };
     },
