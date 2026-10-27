@@ -78,19 +78,29 @@ export function useGetCinemaHome(params: { language?: Lang }, opts?: Opts) {
         throw new Error('No data from TMDB');
       }
       const tr = trending.filter(i => i.media_type !== 'person');
-      const hero = tr.filter(i => i.backdrop_path).slice(0, 6);
       const released = nowPlaying
         .filter(i => i.poster_path && String(i.release_date || '') <= today)
         .sort((a, b) => String(b.release_date || '').localeCompare(String(a.release_date || '')));
       const seen = new Set<number>();
-      const soon = [...upcoming, ...soon1, ...soon2]
+      const soonAll = [...soon1, ...soon2, ...upcoming]
         .filter(i => {
           if (seen.has(i.id)) return false;
           seen.add(i.id);
           return i.poster_path && String(i.release_date || '') > today;
         })
+        .map(i => ({ ...i, media_type: 'movie' }));
+      const soon = soonAll
+        .slice()
         .sort((a, b) => String(a.release_date || '').localeCompare(String(b.release_date || '')))
         .slice(0, 20);
+      // الـ Hero: أقوى الأفلام اللي لسه هتنزل (بالشعبية)، ولو قليلة نكمل بالرائج
+      const upcomingHero = soonAll
+        .filter(i => i.backdrop_path)
+        .sort((a, b) => Number(b.popularity || 0) - Number(a.popularity || 0))
+        .slice(0, 6);
+      const hero = upcomingHero.length >= 3
+        ? upcomingHero
+        : [...upcomingHero, ...tr.filter(i => i.backdrop_path)].slice(0, 6);
       return {
         hero,
         sections: [
