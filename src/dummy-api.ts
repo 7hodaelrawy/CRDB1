@@ -1,3 +1,4 @@
+
 import { useQuery } from '@tanstack/react-query';
 
 export interface MediaItem {
@@ -60,8 +61,11 @@ export function useGetCinemaHome(params: { language?: Lang }, opts?: Opts) {
     queryKey: ['cinema', 'home', params],
     ...opts?.query,
     queryFn: async () => {
-      const [trending, movies, tv, topMovies, topTv] = await Promise.all([
+      const [trending, nowPlaying, upcoming, onAir, movies, tv, topMovies, topTv] = await Promise.all([
         tmdb<Paged>('/trending/all/week', { language }),
+        tmdb<Paged>('/movie/now_playing', { language }),
+        tmdb<Paged>('/movie/upcoming', { language }),
+        tmdb<Paged>('/tv/on_the_air', { language }),
         tmdb<Paged>('/movie/popular', { language }),
         tmdb<Paged>('/tv/popular', { language }),
         tmdb<Paged>('/movie/top_rated', { language }),
@@ -69,9 +73,21 @@ export function useGetCinemaHome(params: { language?: Lang }, opts?: Opts) {
       ]);
       const tr = trending.results.filter(i => i.media_type !== 'person');
       const hero = tr.filter(i => i.backdrop_path).slice(0, 1);
+      const today = new Date().toISOString().slice(0, 10);
+      const newestFirst = (a: MediaItem, b: MediaItem) =>
+        String(b.release_date || '').localeCompare(String(a.release_date || ''));
+      const released = nowPlaying.results
+        .filter(i => i.poster_path && String(i.release_date || '') <= today)
+        .sort(newestFirst);
+      const soon = upcoming.results
+        .filter(i => i.poster_path && String(i.release_date || '') > today)
+        .sort((a, b) => String(a.release_date || '').localeCompare(String(b.release_date || '')));
       return {
         hero,
         sections: [
+          { id: 'now-playing', title: ar ? 'في السينما الآن' : 'In theaters now', mediaType: 'movie', items: released },
+          { id: 'upcoming', title: ar ? 'قريباً في السينما' : 'Coming soon', mediaType: 'movie', items: soon },
+          { id: 'on-air', title: ar ? 'مسلسلات تُعرض حالياً' : 'Currently airing series', mediaType: 'tv', items: onAir.results },
           { id: 'trending', title: ar ? 'الرائج هذا الأسبوع' : 'Trending this week', items: tr },
           { id: 'movies', title: ar ? 'أفلام شائعة' : 'Popular movies', mediaType: 'movie', items: movies.results },
           { id: 'tv', title: ar ? 'مسلسلات شائعة' : 'Popular series', mediaType: 'tv', items: tv.results },
