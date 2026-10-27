@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Link, Route, Switch, useLocation, useParams, useRoute } from 'wouter';
-import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, CircleAlert, Clapperboard, Film, Languages, Moon, Play, Search, Star, Sun, Tv } from 'lucide-react';
+import { ArrowRight, Bookmark, BookmarkCheck, BookmarkPlus, CalendarDays, ChevronLeft, ChevronRight, CircleAlert, Clapperboard, Film, Languages, Moon, Play, Search, Star, Sun, Tv } from 'lucide-react';
 import {
   useGetCinemaHome, useDiscoverCinemaTitles, useSearchCinema, useGetCinemaGenres, useGetCinemaTitle,
   useGetCinemaPerson, useGetCinemaSeason, getDiscoverCinemaTitlesQueryKey, getSearchCinemaQueryKey,
@@ -12,6 +12,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
+import { useWatchlist, type SavedItem } from '@/watchlist';
 import '../src/index.css';
 
 const client = new QueryClient();
@@ -24,11 +25,19 @@ const entryPath = (item: Partial<MediaItem> | Record<string, unknown>, forced?: 
   const kind = forced || String(item.media_type || 'movie');
   return kind === 'person' ? `/person/${item.id}` : `/${kind}/${item.id}`;
 };
+const toSaved = (item: Partial<MediaItem> | Record<string, unknown>, kind?: string): Omit<SavedItem, 'added'> => ({
+  id: Number(item.id),
+  media_type: (kind || String(item.media_type || 'movie')) === 'tv' ? 'tv' : 'movie',
+  title: titleOf(item),
+  poster_path: (item.poster_path as string | null) || null,
+  vote_average: ratingOf(item),
+  date: dateOf(item),
+});
 
 type Lang = 'en' | 'ar';
 const copy = {
-  en: { home: 'Discover', movies: 'Movies', tv: 'Series', search: 'Search', tagline: 'Find your next story.', heroEyebrow: 'Your next watch starts here', explore: 'Explore title', trending: 'The conversation', trendingSub: 'Stories people are watching right now', moviesTitle: 'Movies worth your time', tvTitle: 'Series to get into', people: 'Faces behind the stories', browse: 'Browse', films: 'Movies', shows: 'Series', topRated: 'Top rated', newest: 'Recently released', popular: 'Most popular', sort: 'Sort by', genre: 'All genres', year: 'Any year', rating: 'Any rating', country: 'Country code', results: 'titles', noResults: 'No titles found', noResultsSub: 'Try changing a filter or exploring another genre.', retry: 'Try again', searchTitle: 'Search the whole story', searchSub: 'Titles, series, and the people who bring them to life.', searchPlaceholder: 'Try a title, actor, or director…', all: 'All', titles: 'Titles', cast: 'People', overview: 'Story', castTitle: 'Cast', crew: 'Key crew', details: 'At a glance', release: 'Release date', runtime: 'Runtime', status: 'Status', language: 'Original language', images: 'Stills & artwork', trailer: 'Watch the trailer', recommendations: 'You may also like', seasons: 'Seasons', season: 'Season', episodes: 'Episodes', biography: 'Biography', filmography: 'Known for', born: 'Born', birthplace: 'Place of birth', knownFor: 'Known for', loading: 'Finding the details…', failed: 'We couldn’t load this page.', back: 'Go back', emptyBio: 'No biography is available yet.', browseMore: 'Keep exploring', page: 'Page', previous: 'Previous', next: 'Next', noImage: 'No artwork available', castRole: 'as', watchProviders: 'Where to watch', providersEmpty: 'Provider details are not available.', languageLabel: 'العربية', verified: 'Reliable details. Zero fuss.', allTime: 'A better way to find what to watch.' },
-  ar: { home: 'اكتشف', movies: 'أفلام', tv: 'مسلسلات', search: 'بحث', tagline: 'حكايتك القادمة تبدأ هنا.', heroEyebrow: 'مشاهدتك القادمة تبدأ هنا', explore: 'اكتشف العمل', trending: 'حديث الجمهور', trendingSub: 'حكايات يشاهدها الناس الآن', moviesTitle: 'أفلام تستحق وقتك', tvTitle: 'مسلسلات تستحق المتابعة', people: 'وجوه وراء الحكايات', browse: 'تصفّح', films: 'أفلام', shows: 'مسلسلات', topRated: 'الأعلى تقييماً', newest: 'الأحدث', popular: 'الأكثر رواجاً', sort: 'ترتيب حسب', genre: 'كل التصنيفات', year: 'كل السنوات', rating: 'أي تقييم', country: 'رمز الدولة', results: 'أعمال', noResults: 'لم نعثر على أعمال', noResultsSub: 'جرّب تغيير الفلاتر أو استكشاف تصنيف آخر.', retry: 'حاول مجدداً', searchTitle: 'ابحث عن الحكاية كاملة', searchSub: 'أفلام ومسلسلات والأشخاص الذين يمنحونها الحياة.', searchPlaceholder: 'ابحث عن عمل أو ممثل أو مخرج…', all: 'الكل', titles: 'الأعمال', cast: 'الأشخاص', overview: 'القصة', castTitle: 'طاقم التمثيل', crew: 'فريق العمل', details: 'التفاصيل', release: 'تاريخ الإصدار', runtime: 'المدة', status: 'الحالة', language: 'اللغة الأصلية', images: 'صور ومشاهد', trailer: 'شاهد الإعلان', recommendations: 'قد يعجبك أيضاً', seasons: 'المواسم', season: 'الموسم', episodes: 'الحلقات', biography: 'نبذة', filmography: 'أعمال بارزة', born: 'تاريخ الميلاد', birthplace: 'مكان الميلاد', knownFor: 'معروف بـ', loading: 'جارٍ العثور على التفاصيل…', failed: 'تعذّر تحميل هذه الصفحة.', back: 'العودة', emptyBio: 'لا تتوفر نبذة بعد.', browseMore: 'تابع الاستكشاف', page: 'صفحة', previous: 'السابق', next: 'التالي', noImage: 'لا تتوفر صورة', castRole: 'بدور', watchProviders: 'أماكن المشاهدة', providersEmpty: 'تفاصيل المشاهدة غير متاحة.', languageLabel: 'English', verified: 'معلومات موثوقة. بلا تعقيد.', allTime: 'طريقة أسهل لاختيار ما تشاهده.' }
+  en: { home: 'Discover', movies: 'Movies', tv: 'Series', search: 'Search', tagline: 'Find your next story.', heroEyebrow: 'Your next watch starts here', explore: 'Explore title', trending: 'The conversation', trendingSub: 'Stories people are watching right now', moviesTitle: 'Movies worth your time', tvTitle: 'Series to get into', people: 'Faces behind the stories', browse: 'Browse', films: 'Movies', shows: 'Series', topRated: 'Top rated', newest: 'Recently released', popular: 'Most popular', sort: 'Sort by', genre: 'All genres', year: 'Any year', rating: 'Any rating', country: 'Country code', results: 'titles', noResults: 'No titles found', noResultsSub: 'Try changing a filter or exploring another genre.', retry: 'Try again', searchTitle: 'Search the whole story', searchSub: 'Titles, series, and the people who bring them to life.', searchPlaceholder: 'Try a title, actor, or director…', all: 'All', titles: 'Titles', cast: 'People', overview: 'Story', castTitle: 'Cast', crew: 'Key crew', details: 'At a glance', release: 'Release date', runtime: 'Runtime', status: 'Status', language: 'Original language', images: 'Stills & artwork', trailer: 'Watch the trailer', recommendations: 'You may also like', seasons: 'Seasons', season: 'Season', episodes: 'Episodes', biography: 'Biography', filmography: 'Known for', born: 'Born', birthplace: 'Place of birth', knownFor: 'Known for', loading: 'Finding the details…', failed: 'We couldn’t load this page.', back: 'Go back', emptyBio: 'No biography is available yet.', browseMore: 'Keep exploring', page: 'Page', previous: 'Previous', next: 'Next', noImage: 'No artwork available', castRole: 'as', watchProviders: 'Where to watch', providersEmpty: 'Provider details are not available.', languageLabel: 'العربية', verified: 'Reliable details. Zero fuss.', allTime: 'A better way to find what to watch.', watchlist: 'Watchlist', watchlistSub: 'Titles you saved to watch later. Saved on this device.', watchlistEmpty: 'Your watchlist is empty', watchlistEmptySub: 'Tap the bookmark on any title to save it here.', addWatchlist: 'Add to watchlist', inWatchlist: 'In your watchlist' },
+  ar: { home: 'اكتشف', movies: 'أفلام', tv: 'مسلسلات', search: 'بحث', tagline: 'حكايتك القادمة تبدأ هنا.', heroEyebrow: 'مشاهدتك القادمة تبدأ هنا', explore: 'اكتشف العمل', trending: 'حديث الجمهور', trendingSub: 'حكايات يشاهدها الناس الآن', moviesTitle: 'أفلام تستحق وقتك', tvTitle: 'مسلسلات تستحق المتابعة', people: 'وجوه وراء الحكايات', browse: 'تصفّح', films: 'أفلام', shows: 'مسلسلات', topRated: 'الأعلى تقييماً', newest: 'الأحدث', popular: 'الأكثر رواجاً', sort: 'ترتيب حسب', genre: 'كل التصنيفات', year: 'كل السنوات', rating: 'أي تقييم', country: 'رمز الدولة', results: 'أعمال', noResults: 'لم نعثر على أعمال', noResultsSub: 'جرّب تغيير الفلاتر أو استكشاف تصنيف آخر.', retry: 'حاول مجدداً', searchTitle: 'ابحث عن الحكاية كاملة', searchSub: 'أفلام ومسلسلات والأشخاص الذين يمنحونها الحياة.', searchPlaceholder: 'ابحث عن عمل أو ممثل أو مخرج…', all: 'الكل', titles: 'الأعمال', cast: 'الأشخاص', overview: 'القصة', castTitle: 'طاقم التمثيل', crew: 'فريق العمل', details: 'التفاصيل', release: 'تاريخ الإصدار', runtime: 'المدة', status: 'الحالة', language: 'اللغة الأصلية', images: 'صور ومشاهد', trailer: 'شاهد الإعلان', recommendations: 'قد يعجبك أيضاً', seasons: 'المواسم', season: 'الموسم', episodes: 'الحلقات', biography: 'نبذة', filmography: 'أعمال بارزة', born: 'تاريخ الميلاد', birthplace: 'مكان الميلاد', knownFor: 'معروف بـ', loading: 'جارٍ العثور على التفاصيل…', failed: 'تعذّر تحميل هذه الصفحة.', back: 'العودة', emptyBio: 'لا تتوفر نبذة بعد.', browseMore: 'تابع الاستكشاف', page: 'صفحة', previous: 'السابق', next: 'التالي', noImage: 'لا تتوفر صورة', castRole: 'بدور', watchProviders: 'أماكن المشاهدة', providersEmpty: 'تفاصيل المشاهدة غير متاحة.', languageLabel: 'English', verified: 'معلومات موثوقة. بلا تعقيد.', allTime: 'طريقة أسهل لاختيار ما تشاهده.', watchlist: 'قائمتي', watchlistSub: 'أعمال حفظتها لتشاهدها لاحقاً، وتُحفظ على هذا الجهاز.', watchlistEmpty: 'قائمتك فارغة', watchlistEmptySub: 'اضغط على علامة الحفظ في أي عمل ليظهر هنا.', addWatchlist: 'أضف إلى قائمتي', inWatchlist: 'في قائمتك' }
 };
 
 type Preferences = { lang: Lang; setLang: (lang: Lang) => void; dark: boolean; setDark: (dark: boolean) => void; t: typeof copy.en };
@@ -49,7 +58,7 @@ function usePreferences() {
 function Shell({ children }: { children: ReactNode }) {
   const pref = usePreferences();
   const [loc] = useLocation();
-  const nav = [{ path: '/', label: pref.t.home, icon: Clapperboard }, { path: '/movies', label: pref.t.movies, icon: Film }, { path: '/tv', label: pref.t.tv, icon: Tv }];
+  const nav = [{ path: '/', label: pref.t.home, icon: Clapperboard }, { path: '/movies', label: pref.t.movies, icon: Film }, { path: '/tv', label: pref.t.tv, icon: Tv }, { path: '/watchlist', label: pref.t.watchlist, icon: Bookmark }];
   return <div className="shell">
     <header className="topbar">
       <Link href="/" className="brand" data-testid="link-brand"><img src={pref.dark ? '/brand/logo.svg' : '/brand/logo-on-light.svg'} alt="CRDb" /></Link>
@@ -74,8 +83,13 @@ function LoadingGrid() { return <div className="media-grid">{Array.from({ length
 function PosterCard({ item, kind, onSelect }: { item: MediaItem | Record<string, unknown>; kind?: string; onSelect?: () => void }) {
   const name = titleOf(item);
   const href = entryPath(item, kind);
+  const wl = useWatchlist();
+  const resolved = kind || String(item.media_type || 'movie');
+  const saved = resolved !== 'person' && wl.has(Number(item.id), resolved === 'tv' ? 'tv' : 'movie');
   return <Link href={href} className="poster-card" onClick={onSelect} data-testid={`card-title-${String(item.id)}`}>
-    <div className="poster-frame">{img(item.poster_path as string) ? <img src={img(item.poster_path as string)} alt={name} loading="lazy" /> : <div className="poster-fallback">{name}<br />—</div>}{ratingOf(item) > 0 && <span className="poster-rating"><Star size={10} fill="currentColor" /> {ratingOf(item).toFixed(1)}</span>}</div>
+    <div className="poster-frame">{img(item.poster_path as string) ? <img src={img(item.poster_path as string)} alt={name} loading="lazy" /> : <div className="poster-fallback">{name}<br />—</div>}{ratingOf(item) > 0 && <span className="poster-rating"><Star size={10} fill="currentColor" /> {ratingOf(item).toFixed(1)}</span>}
+      {resolved !== 'person' && <button type="button" className={`wl-btn ${saved ? 'on' : ''}`} aria-label="Watchlist" onClick={e => { e.preventDefault(); e.stopPropagation(); wl.toggle(toSaved(item, kind)); }}>{saved ? <BookmarkCheck size={16} /> : <BookmarkPlus size={16} />}</button>}
+    </div>
     <div className="poster-title">{name}</div><div className="poster-year">{yearOf(item) || '—'}</div>
   </Link>;
 }
@@ -177,6 +191,7 @@ function SearchPage() {
 
 function DetailPage({ kind }: { kind: 'movie' | 'tv' }) {
   const p = useParams<{ id: string }>(); const id = Number(p.id); const { lang, t } = usePreferences();
+  const wl = useWatchlist();
   const params = { mediaType: kind, id, language: lang };
   const q = useGetCinemaTitle(params, { query: { enabled: Number.isFinite(id) && id > 0, queryKey: getGetCinemaTitleQueryKey(params) } });
   const [seasonNo, setSeasonNo] = useState<number | null>(null);
@@ -205,10 +220,12 @@ function DetailPage({ kind }: { kind: 'movie' | 'tv' }) {
   if (q.isError || !title) return <PageFrame><StateBlock error title={t.failed} text={t.noResultsSub} action={t.retry} onAction={() => q.refetch()} /></PageFrame>;
   const genres = (title.genres as Array<{ id: number; name: string }> | undefined) || [];
   const recommendationsLinkKind = kind;
+  const inList = wl.has(id, kind);
   return <div className="page" style={{ paddingTop: 38 }}>
     <section className="detail-hero">{img(title.backdrop_path as string, 'original') && <img className="detail-backdrop" src={img(title.backdrop_path as string, 'original')} alt="" />}
       <div className="detail-head">{img(title.poster_path as string) ? <img className="detail-poster" src={img(title.poster_path as string)} alt={titleOf(title)} /> : <div className="detail-poster" />}
-        <div><div className="eyebrow">{kind === 'movie' ? t.movies : t.tv}</div><h1 className="detail-title">{titleOf(title)}</h1><div className="detail-meta">{ratingOf(title) > 0 && <span className="score"><Star size={13} fill="currentColor" /> {ratingOf(title).toFixed(1)} ({Number(title.vote_count || 0).toLocaleString()})</span>}<span><CalendarDays size={13} style={{ verticalAlign: 'middle' }} /> {dateOf(title) || '—'}</span>{typeof title.runtime === 'number' && <span>{title.runtime} min</span>}{typeof title.number_of_seasons === 'number' && <span>{title.number_of_seasons} {t.seasons.toLowerCase()}</span>}</div><p className="detail-overview">{String(title.overview || '')}</p><div className="genre-pills">{genres.map(g => <span key={g.id}>{g.name}</span>)}</div></div>
+        <div><div className="eyebrow">{kind === 'movie' ? t.movies : t.tv}</div><h1 className="detail-title">{titleOf(title)}</h1><div className="detail-meta">{ratingOf(title) > 0 && <span className="score"><Star size={13} fill="currentColor" /> {ratingOf(title).toFixed(1)} ({Number(title.vote_count || 0).toLocaleString()})</span>}<span><CalendarDays size={13} style={{ verticalAlign: 'middle' }} /> {dateOf(title) || '—'}</span>{typeof title.runtime === 'number' && <span>{title.runtime} min</span>}{typeof title.number_of_seasons === 'number' && <span>{title.number_of_seasons} {t.seasons.toLowerCase()}</span>}</div><p className="detail-overview">{String(title.overview || '')}</p><div className="genre-pills">{genres.map(g => <span key={g.id}>{g.name}</span>)}</div>
+          <button type="button" className={`wl-cta ${inList ? 'on' : ''}`} onClick={() => wl.toggle(toSaved(title, kind))}>{inList ? <BookmarkCheck size={17} /> : <BookmarkPlus size={17} />}{inList ? t.inWatchlist : t.addWatchlist}</button></div>
       </div>
     </section>
     <div className="detail-body"><div className="detail-columns"><div>
@@ -238,6 +255,14 @@ function PersonPage() {
   </PageFrame>;
 }
 
+function WatchlistPage() {
+  const { t } = usePreferences();
+  const wl = useWatchlist();
+  return <PageFrame><div className="eyebrow">{t.watchlist}</div><h1 className="page-title">{t.watchlist}</h1><p className="subhead">{t.watchlistSub}</p>
+    {wl.items.length ? <div className="media-grid">{wl.items.map(item => <div className="grid-poster" key={`${item.media_type}-${item.id}`}><PosterCard item={{ id: item.id, media_type: item.media_type, title: item.title, poster_path: item.poster_path, vote_average: item.vote_average, release_date: item.date }} kind={item.media_type} /></div>)}</div> : <StateBlock title={t.watchlistEmpty} text={t.watchlistEmptySub} />}
+  </PageFrame>;
+}
+
 function Router() {
   const [location] = useLocation();
   return <ErrorBoundary resetKey={location}><Shell><Switch>
@@ -245,6 +270,7 @@ function Router() {
     <Route path="/movies"><BrowsePage kind="movie" /></Route>
     <Route path="/tv"><BrowsePage kind="tv" /></Route>
     <Route path="/search" component={SearchPage} />
+    <Route path="/watchlist" component={WatchlistPage} />
     <Route path="/movie/:id"><DetailPage kind="movie" /></Route>
     <Route path="/tv/:id"><DetailPage kind="tv" /></Route>
     <Route path="/person/:id" component={PersonPage} />
