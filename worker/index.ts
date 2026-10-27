@@ -4,6 +4,12 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
+    // تشخيص مؤقت: بيعرض طول المفتاح بس، مش المفتاح نفسه
+    if (url.pathname === '/api/debug') {
+      const k = (env.TMDB_API_KEY || '').trim();
+      return Response.json({ hasKey: k.length > 0, length: k.length, kind: k.length > 40 ? 'token' : 'v3-key' });
+    }
+
     if (url.pathname.startsWith('/api/tmdb/')) {
       const target = new URL('https://api.themoviedb.org/3/' + url.pathname.slice('/api/tmdb/'.length));
       url.searchParams.forEach((v, k) => target.searchParams.set(k, v));
