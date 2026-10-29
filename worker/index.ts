@@ -6,10 +6,13 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // تشخيص مؤقت: بيعرض طول المفتاح بس
-    if (url.pathname === '/api/debug') {
-      const k = getKey(env);
-      return Response.json({ hasKey: k.length > 0, length: k.length, kind: k.length > 40 ? 'token' : 'v3-key' });
+    // بلد الزائر (Cloudflare بيحدده تلقائياً)
+    if (url.pathname === '/api/country') {
+      const cf = (request as unknown as { cf?: { country?: string } }).cf;
+      return Response.json(
+        { country: cf?.country || null },
+        { headers: { 'cache-control': 'private, max-age=3600' } },
+      );
     }
 
     if (url.pathname.startsWith('/api/tmdb/')) {
