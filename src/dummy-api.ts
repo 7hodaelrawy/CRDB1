@@ -26,6 +26,14 @@ export interface PersonDetails {
   known_for_department?: string;
   [key: string]: unknown;
 }
+export interface EpisodeRating {
+  season: number;
+  episode: number;
+  name: string;
+  rating: number;
+  votes: number;
+  airDate: string;
+}
 
 type Opts = { query?: { enabled?: boolean; queryKey?: readonly unknown[] } };
 type Lang = string | undefined;
@@ -152,6 +160,34 @@ export function useGetCinemaUpcoming(p: { language?: Lang }, opts?: Opts) {
         })
         .map(i => ({ ...i, media_type: 'movie' }))
         .sort((a, b) => String(a.release_date).localeCompare(String(b.release_date)));
+    },
+  });
+}
+
+/* ---------- Episode ratings (all seasons) ---------- */
+export function useGetCinemaEpisodeRatings(p: { id: number; seasonNumbers: number[]; language?: Lang }, opts?: Opts) {
+  return useQuery<EpisodeRating[]>({
+    queryKey: ['cinema', 'episode-ratings', p],
+    staleTime: 60 * 60 * 1000,
+    ...opts?.query,
+    queryFn: async () => {
+      const seasons = await Promise.all(
+        p.seasonNumbers.slice(0, 30).map(n =>
+          tmdb<{ episodes?: Array<Record<string, unknown>> }>(`/tv/${p.id}/season/${n}`, { language: p.language })
+            .then(r => ({ n, eps: r.episodes || [] }))
+            .catch(() => ({ n, eps: [] as Array<Record<string, unknown>> })),
+        ),
+      );
+      return seasons.flatMap(({ n, eps }) =>
+        eps.map(e => ({
+          season: n,
+          episode: Number(e.episode_number || 0),
+          name: String(e.name || ''),
+          rating: Number(e.vote_average || 0),
+          votes: Number(e.vote_count || 0),
+          airDate: String(e.air_date || ''),
+        })),
+      );
     },
   });
 }
