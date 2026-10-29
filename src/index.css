@@ -202,3 +202,23 @@ a { color: inherit; text-decoration: none; }
   .cal-poster img, .cal-poster-ph { width: 74px; }
   .cal-date strong { font-size: 24px; }
 }
+/* ---------- episode heatmap ---------- */
+.hm-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+.hm-stat { flex: 1 1 220px; padding: 14px 16px; border: 1px solid hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); }
+.hm-stat span { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+.hm-stat strong { display: block; margin-top: 4px; font-size: 32px; line-height: 1; font-weight: 800; }
+.hm-stat em { display: block; margin-top: 6px; font-size: 13px; font-style: normal; color: hsl(var(--muted-foreground)); }
+.hm-scroll { direction: ltr; margin-top: 16px; padding-bottom: 8px; overflow-x: auto; }
+.hm-grid { display: grid; gap: 4px; width: max-content; }
+.hm-head { text-align: center; font-size: 12px; font-weight: 800; padding-bottom: 4px; }
+.hm-side { display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: hsl(var(--muted-foreground)); }
+.hm-side.avg { font-size: 10px; }
+.hm-cell {
+  height: 32px; display: grid; place-items: center; border-radius: 6px;
+  font-size: 12px; font-weight: 800; color: #fff; cursor: default;
+}
+.hm-cell.none { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+.hm-cell.void { background: transparent; }
+.hm-cell.avg { height: 36px; margin-top: 4px; font-size: 13px; box-shadow: 0 0 0 2px hsl(var(--border)) inset; }
+.hm-legend { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 11px; color: hsl(var(--muted-foreground)); }
+.hm-legend i { width: 140px; height: 8px; border-radius: 999px; background: linear-gradient(to right, hsl(0 62% 42%), hsl(62 62% 42%), hsl(125 62% 42%)); }
