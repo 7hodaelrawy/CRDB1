@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Link, Route, Switch, useLocation, useParams, useRoute } from 'wouter';
-import { ArrowRight, Bookmark, BookmarkCheck, BookmarkPlus, CalendarDays, ChevronLeft, ChevronRight, CircleAlert, Clapperboard, Film, Languages, Moon, Play, Search, Star, Sun, Tv, X } from 'lucide-react';
+import { ArrowRight, Bookmark, BookmarkCheck, BookmarkPlus, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, CircleAlert, Clapperboard, Film, Languages, Moon, Play, Search, Star, Sun, Tv, X } from 'lucide-react';
 import {
-  useGetCinemaHome, useGetCinemaTrailer, useDiscoverCinemaTitles, useSearchCinema, useGetCinemaGenres, useGetCinemaTitle,
+  useGetCinemaHome, useGetCinemaTrailer, useGetCinemaUpcoming, useDiscoverCinemaTitles, useSearchCinema, useGetCinemaGenres, useGetCinemaTitle,
   useGetCinemaPerson, useGetCinemaSeason, getDiscoverCinemaTitlesQueryKey, getSearchCinemaQueryKey,
   getGetCinemaGenresQueryKey, getGetCinemaTitleQueryKey, getGetCinemaPersonQueryKey, getGetCinemaSeasonQueryKey,
 } from '@workspace/api-client-react';
@@ -45,11 +45,40 @@ function useVisitorCountry() {
   const choose = (c: string) => { setCountry(c); try { localStorage.setItem('crdb-country-v1', c); } catch { /* ignore */ } };
   return { country, choose };
 }
+const daysUntil = (date: string): number | null => {
+  const [y, m, d] = date.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const now = new Date();
+  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+};
+const countdownLabel = (days: number | null, lang: 'en' | 'ar') => {
+  if (days === null) return '';
+  if (days <= 0) return lang === 'ar' ? 'اليوم' : 'Today';
+  if (days === 1) return lang === 'ar' ? 'غداً' : 'Tomorrow';
+  if (lang === 'ar') return days === 2 ? 'بعد يومين' : days <= 10 ? `بعد ${days} أيام` : `بعد ${days} يوماً`;
+  return `In ${days} days`;
+};
+const downloadIcs = (item: Partial<MediaItem> | Record<string, unknown>) => {
+  const d = String(item.release_date || '').replace(/-/g, '');
+  if (d.length !== 8) return;
+  const next = new Date(Date.UTC(Number(d.slice(0, 4)), Number(d.slice(4, 6)) - 1, Number(d.slice(6, 8)) + 1)).toISOString().slice(0, 10).replace(/-/g, '');
+  const esc = (s: string) => s.replace(/[\\;,]/g, m => `\\${m}`).replace(/\r?\n/g, ' ');
+  const stamp = `${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`;
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//CRDb//Calendar//EN', 'BEGIN:VEVENT', `UID:crdb-${item.id}@crdb`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${d}`, `DTEND;VALUE=DATE:${next}`, `SUMMARY:${esc(titleOf(item))}`, 'END:VEVENT', 'END:VCALENDAR'];
+  const url = URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${titleOf(item).replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') || `movie-${item.id}`}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
 
 type Lang = 'en' | 'ar';
 const copy = {
-  en: { home: 'Discover', movies: 'Movies', tv: 'Series', search: 'Search', tagline: 'Find your next story.', heroEyebrow: 'Your next watch starts here', explore: 'Explore title', trending: 'The conversation', trendingSub: 'Stories people are watching right now', moviesTitle: 'Movies worth your time', tvTitle: 'Series to get into', people: 'Faces behind the stories', browse: 'Browse', films: 'Movies', shows: 'Series', topRated: 'Top rated', newest: 'Recently released', popular: 'Most popular', sort: 'Sort by', genre: 'All genres', year: 'Any year', rating: 'Any rating', country: 'Country code', results: 'titles', noResults: 'No titles found', noResultsSub: 'Try changing a filter or exploring another genre.', retry: 'Try again', searchTitle: 'Search the whole story', searchSub: 'Titles, series, and the people who bring them to life.', searchPlaceholder: 'Try a title, actor, or director…', all: 'All', titles: 'Titles', cast: 'People', overview: 'Story', castTitle: 'Cast', crew: 'Key crew', details: 'At a glance', release: 'Release date', runtime: 'Runtime', status: 'Status', language: 'Original language', images: 'Stills & artwork', trailer: 'Watch the trailer', recommendations: 'You may also like', seasons: 'Seasons', season: 'Season', episodes: 'Episodes', biography: 'Biography', filmography: 'Known for', born: 'Born', birthplace: 'Place of birth', knownFor: 'Known for', loading: 'Finding the details…', failed: 'We couldn’t load this page.', back: 'Go back', emptyBio: 'No biography is available yet.', browseMore: 'Keep exploring', page: 'Page', previous: 'Previous', next: 'Next', noImage: 'No artwork available', castRole: 'as', watchProviders: 'Where to watch', providersEmpty: 'Provider details are not available.', languageLabel: 'العربية', verified: 'Reliable details. Zero fuss.', allTime: 'A better way to find what to watch.', watchlist: 'Watchlist', watchlistSub: 'Titles you saved to watch later. Saved on this device.', watchlistEmpty: 'Your watchlist is empty', watchlistEmptySub: 'Tap the bookmark on any title to save it here.', addWatchlist: 'Add to watchlist', inWatchlist: 'In your watchlist', wtwStream: 'Stream', wtwFree: 'Free', wtwRent: 'Rent', wtwBuy: 'Buy', wtwNoCountry: 'No listings for your country yet. Showing', wtwCredit: 'Streaming availability by JustWatch', wtwAll: 'See all options' },
-  ar: { home: 'اكتشف', movies: 'أفلام', tv: 'مسلسلات', search: 'بحث', tagline: 'حكايتك القادمة تبدأ هنا.', heroEyebrow: 'مشاهدتك القادمة تبدأ هنا', explore: 'اكتشف العمل', trending: 'حديث الجمهور', trendingSub: 'حكايات يشاهدها الناس الآن', moviesTitle: 'أفلام تستحق وقتك', tvTitle: 'مسلسلات تستحق المتابعة', people: 'وجوه وراء الحكايات', browse: 'تصفّح', films: 'أفلام', shows: 'مسلسلات', topRated: 'الأعلى تقييماً', newest: 'الأحدث', popular: 'الأكثر رواجاً', sort: 'ترتيب حسب', genre: 'كل التصنيفات', year: 'كل السنوات', rating: 'أي تقييم', country: 'رمز الدولة', results: 'أعمال', noResults: 'لم نعثر على أعمال', noResultsSub: 'جرّب تغيير الفلاتر أو استكشاف تصنيف آخر.', retry: 'حاول مجدداً', searchTitle: 'ابحث عن الحكاية كاملة', searchSub: 'أفلام ومسلسلات والأشخاص الذين يمنحونها الحياة.', searchPlaceholder: 'ابحث عن عمل أو ممثل أو مخرج…', all: 'الكل', titles: 'الأعمال', cast: 'الأشخاص', overview: 'القصة', castTitle: 'طاقم التمثيل', crew: 'فريق العمل', details: 'التفاصيل', release: 'تاريخ الإصدار', runtime: 'المدة', status: 'الحالة', language: 'اللغة الأصلية', images: 'صور ومشاهد', trailer: 'شاهد الإعلان', recommendations: 'قد يعجبك أيضاً', seasons: 'المواسم', season: 'الموسم', episodes: 'الحلقات', biography: 'نبذة', filmography: 'أعمال بارزة', born: 'تاريخ الميلاد', birthplace: 'مكان الميلاد', knownFor: 'معروف بـ', loading: 'جارٍ العثور على التفاصيل…', failed: 'تعذّر تحميل هذه الصفحة.', back: 'العودة', emptyBio: 'لا تتوفر نبذة بعد.', browseMore: 'تابع الاستكشاف', page: 'صفحة', previous: 'السابق', next: 'التالي', noImage: 'لا تتوفر صورة', castRole: 'بدور', watchProviders: 'أماكن المشاهدة', providersEmpty: 'تفاصيل المشاهدة غير متاحة.', languageLabel: 'English', verified: 'معلومات موثوقة. بلا تعقيد.', allTime: 'طريقة أسهل لاختيار ما تشاهده.', watchlist: 'قائمتي', watchlistSub: 'أعمال حفظتها لتشاهدها لاحقاً، وتُحفظ على هذا الجهاز.', watchlistEmpty: 'قائمتك فارغة', watchlistEmptySub: 'اضغط على علامة الحفظ في أي عمل ليظهر هنا.', addWatchlist: 'أضف إلى قائمتي', inWatchlist: 'في قائمتك', wtwStream: 'اشتراك', wtwFree: 'مجاناً', wtwRent: 'إيجار', wtwBuy: 'شراء', wtwNoCountry: 'لا توجد منصات لبلدك حتى الآن. المعروض لـ', wtwCredit: 'بيانات المشاهدة من JustWatch', wtwAll: 'كل الخيارات' }
+  en: { home: 'Discover', movies: 'Movies', tv: 'Series', search: 'Search', tagline: 'Find your next story.', heroEyebrow: 'Your next watch starts here', explore: 'Explore title', trending: 'The conversation', trendingSub: 'Stories people are watching right now', moviesTitle: 'Movies worth your time', tvTitle: 'Series to get into', people: 'Faces behind the stories', browse: 'Browse', films: 'Movies', shows: 'Series', topRated: 'Top rated', newest: 'Recently released', popular: 'Most popular', sort: 'Sort by', genre: 'All genres', year: 'Any year', rating: 'Any rating', country: 'Country code', results: 'titles', noResults: 'No titles found', noResultsSub: 'Try changing a filter or exploring another genre.', retry: 'Try again', searchTitle: 'Search the whole story', searchSub: 'Titles, series, and the people who bring them to life.', searchPlaceholder: 'Try a title, actor, or director…', all: 'All', titles: 'Titles', cast: 'People', overview: 'Story', castTitle: 'Cast', crew: 'Key crew', details: 'At a glance', release: 'Release date', runtime: 'Runtime', status: 'Status', language: 'Original language', images: 'Stills & artwork', trailer: 'Watch the trailer', recommendations: 'You may also like', seasons: 'Seasons', season: 'Season', episodes: 'Episodes', biography: 'Biography', filmography: 'Known for', born: 'Born', birthplace: 'Place of birth', knownFor: 'Known for', loading: 'Finding the details…', failed: 'We couldn’t load this page.', back: 'Go back', emptyBio: 'No biography is available yet.', browseMore: 'Keep exploring', page: 'Page', previous: 'Previous', next: 'Next', noImage: 'No artwork available', castRole: 'as', watchProviders: 'Where to watch', providersEmpty: 'Provider details are not available.', languageLabel: 'العربية', verified: 'Reliable details. Zero fuss.', allTime: 'A better way to find what to watch.', watchlist: 'Watchlist', watchlistSub: 'Titles you saved to watch later. Saved on this device.', watchlistEmpty: 'Your watchlist is empty', watchlistEmptySub: 'Tap the bookmark on any title to save it here.', addWatchlist: 'Add to watchlist', inWatchlist: 'In your watchlist', wtwStream: 'Stream', wtwFree: 'Free', wtwRent: 'Rent', wtwBuy: 'Buy', wtwNoCountry: 'No listings for your country yet. Showing', wtwCredit: 'Streaming availability by JustWatch', wtwAll: 'See all options', calendar: 'Calendar', calendarTitle: 'Coming to theaters', calendarSub: 'Upcoming movies by release date, with a countdown for each one.', calendarNote: 'Dates follow TMDB and can differ by country.', addToCalendar: 'Add to your calendar' },
+  ar: { home: 'اكتشف', movies: 'أفلام', tv: 'مسلسلات', search: 'بحث', tagline: 'حكايتك القادمة تبدأ هنا.', heroEyebrow: 'مشاهدتك القادمة تبدأ هنا', explore: 'اكتشف العمل', trending: 'حديث الجمهور', trendingSub: 'حكايات يشاهدها الناس الآن', moviesTitle: 'أفلام تستحق وقتك', tvTitle: 'مسلسلات تستحق المتابعة', people: 'وجوه وراء الحكايات', browse: 'تصفّح', films: 'أفلام', shows: 'مسلسلات', topRated: 'الأعلى تقييماً', newest: 'الأحدث', popular: 'الأكثر رواجاً', sort: 'ترتيب حسب', genre: 'كل التصنيفات', year: 'كل السنوات', rating: 'أي تقييم', country: 'رمز الدولة', results: 'أعمال', noResults: 'لم نعثر على أعمال', noResultsSub: 'جرّب تغيير الفلاتر أو استكشاف تصنيف آخر.', retry: 'حاول مجدداً', searchTitle: 'ابحث عن الحكاية كاملة', searchSub: 'أفلام ومسلسلات والأشخاص الذين يمنحونها الحياة.', searchPlaceholder: 'ابحث عن عمل أو ممثل أو مخرج…', all: 'الكل', titles: 'الأعمال', cast: 'الأشخاص', overview: 'القصة', castTitle: 'طاقم التمثيل', crew: 'فريق العمل', details: 'التفاصيل', release: 'تاريخ الإصدار', runtime: 'المدة', status: 'الحالة', language: 'اللغة الأصلية', images: 'صور ومشاهد', trailer: 'شاهد الإعلان', recommendations: 'قد يعجبك أيضاً', seasons: 'المواسم', season: 'الموسم', episodes: 'الحلقات', biography: 'نبذة', filmography: 'أعمال بارزة', born: 'تاريخ الميلاد', birthplace: 'مكان الميلاد', knownFor: 'معروف بـ', loading: 'جارٍ العثور على التفاصيل…', failed: 'تعذّر تحميل هذه الصفحة.', back: 'العودة', emptyBio: 'لا تتوفر نبذة بعد.', browseMore: 'تابع الاستكشاف', page: 'صفحة', previous: 'السابق', next: 'التالي', noImage: 'لا تتوفر صورة', castRole: 'بدور', watchProviders: 'أماكن المشاهدة', providersEmpty: 'تفاصيل المشاهدة غير متاحة.', languageLabel: 'English', verified: 'معلومات موثوقة. بلا تعقيد.', allTime: 'طريقة أسهل لاختيار ما تشاهده.', watchlist: 'قائمتي', watchlistSub: 'أعمال حفظتها لتشاهدها لاحقاً، وتُحفظ على هذا الجهاز.', watchlistEmpty: 'قائمتك فارغة', watchlistEmptySub: 'اضغط على علامة الحفظ في أي عمل ليظهر هنا.', addWatchlist: 'أضف إلى قائمتي', inWatchlist: 'في قائمتك', wtwStream: 'اشتراك', wtwFree: 'مجاناً', wtwRent: 'إيجار', wtwBuy: 'شراء', wtwNoCountry: 'لا توجد منصات لبلدك حتى الآن. المعروض لـ', wtwCredit: 'بيانات المشاهدة من JustWatch', wtwAll: 'كل الخيارات', calendar: 'التقويم', calendarTitle: 'قريباً في السينما', calendarSub: 'الأفلام القادمة حسب تاريخ العرض مع عدّاد تنازلي لكل فيلم.', calendarNote: 'التواريخ حسب TMDB وقد تختلف من بلد لآخر.', addToCalendar: 'أضف إلى تقويمك' }
 };
 
 type Preferences = { lang: Lang; setLang: (lang: Lang) => void; dark: boolean; setDark: (dark: boolean) => void; t: typeof copy.en };
@@ -70,7 +99,7 @@ function usePreferences() {
 function Shell({ children }: { children: ReactNode }) {
   const pref = usePreferences();
   const [loc] = useLocation();
-  const nav = [{ path: '/', label: pref.t.home, icon: Clapperboard }, { path: '/movies', label: pref.t.movies, icon: Film }, { path: '/tv', label: pref.t.tv, icon: Tv }, { path: '/watchlist', label: pref.t.watchlist, icon: Bookmark }];
+  const nav = [{ path: '/', label: pref.t.home, icon: Clapperboard }, { path: '/movies', label: pref.t.movies, icon: Film }, { path: '/tv', label: pref.t.tv, icon: Tv }, { path: '/calendar', label: pref.t.calendar, icon: CalendarDays }, { path: '/watchlist', label: pref.t.watchlist, icon: Bookmark }];
   return <div className="shell">
     <header className="topbar">
       <Link href="/" className="brand" data-testid="link-brand"><img src={pref.dark ? '/brand/logo.svg' : '/brand/logo-on-light.svg'} alt="CRDb" /></Link>
@@ -190,6 +219,55 @@ function HomePage() {
       {q.data?.sections?.map(section => <Section key={section.id} title={section.title} items={section.items} kind={section.mediaType === 'person' ? undefined : section.mediaType} browseLabel={t.browse} />)}
     </>}
     {playing && trailerKey && hero && <TrailerModal videoKey={trailerKey} title={titleOf(hero)} onClose={() => setPlaying(false)} />}
+  </PageFrame>;
+}
+
+function CalendarPage() {
+  const { lang, t } = usePreferences();
+  const wl = useWatchlist();
+  const q = useGetCinemaUpcoming({ language: lang });
+  const locale = lang === 'ar' ? 'ar' : 'en-US';
+  const groups = useMemo(() => {
+    const map = new Map<string, MediaItem[]>();
+    (q.data || []).forEach(item => {
+      const key = String(item.release_date).slice(0, 7);
+      map.set(key, [...(map.get(key) || []), item]);
+    });
+    return Array.from(map.entries());
+  }, [q.data]);
+  const monthLabel = (key: string) => {
+    const [y, m] = key.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  };
+  const dayParts = (date: string) => {
+    const [y, m, d] = date.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    return { day: dt.toLocaleDateString(locale, { day: 'numeric', timeZone: 'UTC' }), weekday: dt.toLocaleDateString(locale, { weekday: 'short', timeZone: 'UTC' }) };
+  };
+  return <PageFrame><div className="eyebrow">{t.calendar}</div><h1 className="page-title">{t.calendarTitle}</h1><p className="subhead">{t.calendarSub}</p>
+    {q.isLoading ? <LoadingGrid /> : q.isError ? <StateBlock error title={t.failed} text={t.noResultsSub} action={t.retry} onAction={() => q.refetch()} /> : groups.length ? <>
+      {groups.map(([key, items]) => <section className="cal-month-block" key={key}>
+        <h2 className="cal-month">{monthLabel(key)}</h2>
+        <div className="cal-list">{items.map(item => {
+          const parts = dayParts(String(item.release_date));
+          const saved = wl.has(Number(item.id), 'movie');
+          return <article className="cal-item" key={item.id}>
+            <div className="cal-date"><strong>{parts.day}</strong><span>{parts.weekday}</span></div>
+            <Link href={entryPath(item, 'movie')} className="cal-poster">{img(item.poster_path, 'w185') ? <img src={img(item.poster_path, 'w185')} alt={titleOf(item)} loading="lazy" /> : <div className="cal-poster-ph" />}</Link>
+            <div className="cal-body">
+              <Link href={entryPath(item, 'movie')} className="cal-title">{titleOf(item)}</Link>
+              <p className="cal-overview">{String(item.overview || '')}</p>
+              <div className="cal-actions">
+                <span className="cal-count">{countdownLabel(daysUntil(String(item.release_date)), lang)}</span>
+                <button type="button" className={`cal-btn ${saved ? 'on' : ''}`} onClick={() => wl.toggle(toSaved(item, 'movie'))}>{saved ? <BookmarkCheck size={15} /> : <BookmarkPlus size={15} />}{saved ? t.inWatchlist : t.addWatchlist}</button>
+                <button type="button" className="cal-btn" onClick={() => downloadIcs(item)}><CalendarPlus size={15} />{t.addToCalendar}</button>
+              </div>
+            </div>
+          </article>;
+        })}</div>
+      </section>)}
+      <p className="wtw-credit">{t.calendarNote}</p>
+    </> : <StateBlock title={t.noResults} text={t.noResultsSub} />}
   </PageFrame>;
 }
 
@@ -334,6 +412,7 @@ function Router() {
     <Route path="/movies"><BrowsePage kind="movie" /></Route>
     <Route path="/tv"><BrowsePage kind="tv" /></Route>
     <Route path="/search" component={SearchPage} />
+    <Route path="/calendar" component={CalendarPage} />
     <Route path="/watchlist" component={WatchlistPage} />
     <Route path="/movie/:id"><DetailPage kind="movie" /></Route>
     <Route path="/tv/:id"><DetailPage kind="tv" /></Route>
