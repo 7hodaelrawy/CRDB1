@@ -14,11 +14,8 @@ interface TmdbItem {
   first_air_date?: string;
 }
 
-// ===== إعدادات =====
 const SITE_NAME = 'CRDB';
-// لما تشتري الدومين حط هنا مثلاً 'https://crdb.com' (من غير / في الآخر). فاضي = نفس الدومين اللي الزائر فيه.
 const CANONICAL_ORIGIN = '';
-// شكل روابط صفحات الأفلام والمسلسلات في موقعك
 const TITLE_ROUTE = /^\/(movie|tv)\/(\d+)(?:[-/].*)?$/;
 
 const getKey = (env: Env) => (env.TMDB_KEY || env.TMDB_API_KEY || '').trim();
@@ -47,7 +44,6 @@ async function tmdb<T>(env: Env, path: string, params: Record<string, string> = 
   }
 }
 
-// صفحة فيلم/مسلسل: نفس الـ index.html بس بعنوان ووصف وصورة مشاركة خاصة بالعنوان
 async function titlePage(env: Env, url: URL, kind: string, id: string): Promise<Response | null> {
   if (!env.ASSETS) return null;
   const shell = await env.ASSETS.fetch(new Request(new URL('/', url).toString()));
@@ -108,7 +104,6 @@ async function titlePage(env: Env, url: URL, kind: string, id: string): Promise<
   return new Response(out.body, { status: 200, headers });
 }
 
-// صفحة Top 250 (أفلام أو مسلسلات)
 async function topPage(env: Env, url: URL, kind: 'movie' | 'tv'): Promise<Response> {
   type Row = {
     id: number;
@@ -211,7 +206,6 @@ ${items}
   });
 }
 
-// sitemap ديناميكي
 async function sitemap(env: Env, url: URL): Promise<Response> {
   type List = { results?: { id: number }[] };
   const origin = CANONICAL_ORIGIN || url.origin;
@@ -239,7 +233,28 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // 1. طلبات الأفلام (API)
+    // 1. مسار مخصص لجلب الأفلام العربية (جديد)
+    if (url.pathname === '/api/arabic-movies') {
+      const target = new URL('https://api.themoviedb.org/3/discover/movie');
+      target.searchParams.set('with_original_language', 'ar');
+      target.searchParams.set('sort_by', 'popularity.desc');
+      target.searchParams.set('language', 'ar');
+      const page = url.searchParams.get('page') || '1';
+      target.searchParams.set('page', page);
+
+      const key = getKey(env);
+      const headers: Record<string, string> = {};
+      if (key.length > 40) headers.Authorization = `Bearer ${key}`;
+      else target.searchParams.set('api_key', key);
+
+      const res = await fetch(target.toString(), { headers, cf: { cacheTtl: 3600, cacheEverything: true } });
+      return new Response(res.body, {
+        status: res.status,
+        headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=3600' },
+      });
+    }
+
+    // 2. طلبات الأفلام العادية (API)
     if (url.pathname.startsWith('/api/tmdb/')) {
       const target = new URL('https://api.themoviedb.org/3/' + url.pathname.slice('/api/tmdb/'.length));
       url.searchParams.forEach((v, k) => target.searchParams.set(k, v));
@@ -254,7 +269,7 @@ export default {
       });
     }
 
-    // 2. طلبات الصور
+    // 3. طلبات الصور
     if (url.pathname.startsWith('/img/')) {
       const res = await fetch('https://image.tmdb.org/t/p/' + url.pathname.slice(5), { cf: { cacheTtl: 86400, cacheEverything: true } });
       return new Response(res.body, {
@@ -263,7 +278,7 @@ export default {
       });
     }
 
-    // 3. الروابط الديناميكية
+    // 4. الروابط الديناميكية
     if (url.pathname === '/sitemap.xml') return sitemap(env, url);
     if (url.pathname === '/top-movies') return topPage(env, url, 'movie');
     if (url.pathname === '/top-tv') return topPage(env, url, 'tv');
@@ -274,7 +289,7 @@ export default {
       if (page) return page;
     }
 
-    // 4. عرض الموقع (الملفات) وحقن كود الـ CSP
+    // 5. عرض الموقع (الملفات) وحقن كود الـ CSP
     if (env.ASSETS) {
       const res = await env.ASSETS.fetch(request);
       const newHeaders = new Headers(res.headers);
