@@ -5,10 +5,28 @@
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-eval' 'unsafe-inline' https:;">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CRDb — Find your next story</title>
+    <title>Narvelo — Find your next story</title>
+    <meta name="description" content="اكتشف أفضل الأفلام والمسلسلات، وتقييمات الجمهور العربي، وقوائم Top 250 على Narvelo." />
+    <meta name="theme-color" content="#0f1115" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Narvelo" />
+    <meta property="og:title" content="Narvelo — Find your next story" />
+    <meta property="og:description" content="اكتشف أفضل الأفلام والمسلسلات، وتقييمات الجمهور العربي، وقوائم Top 250." />
+    <meta name="twitter:card" content="summary" />
   </head>
   <body>
     <div id="root"></div>
+    <noscript>Narvelo — اكتشف أفضل الأفلام والمسلسلات. فعّل JavaScript لاستخدام الموقع.</noscript>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function () {});
+        });
+      }
+    </script>
   </body>
 </html>
