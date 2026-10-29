@@ -117,6 +117,45 @@ export function useGetCinemaHome(params: { language?: Lang }, opts?: Opts) {
   });
 }
 
+/* ---------- Upcoming calendar ---------- */
+export function useGetCinemaUpcoming(p: { language?: Lang }, opts?: Opts) {
+  return useQuery<MediaItem[]>({
+    queryKey: ['cinema', 'upcoming', p],
+    staleTime: 30 * 60 * 1000,
+    ...opts?.query,
+    queryFn: async () => {
+      const now = new Date();
+      const iso = (d: Date) => d.toISOString().slice(0, 10);
+      const from = iso(now);
+      const to = iso(new Date(now.getTime() + 150 * 86400000));
+      const pages = await Promise.all(
+        [1, 2, 3, 4, 5].map(page =>
+          tmdb<Paged>('/discover/movie', {
+            language: p.language,
+            page,
+            sort_by: 'popularity.desc',
+            'primary_release_date.gte': from,
+            'primary_release_date.lte': to,
+            with_release_type: '2|3',
+          })
+            .then(r => r.results || [])
+            .catch(() => [] as MediaItem[]),
+        ),
+      );
+      const seen = new Set<number>();
+      return pages
+        .flat()
+        .filter(i => {
+          if (seen.has(i.id) || !i.poster_path || !i.release_date) return false;
+          seen.add(i.id);
+          return true;
+        })
+        .map(i => ({ ...i, media_type: 'movie' }))
+        .sort((a, b) => String(a.release_date).localeCompare(String(b.release_date)));
+    },
+  });
+}
+
 /* ---------- Trailer (YouTube key) ---------- */
 export function useGetCinemaTrailer(p: { mediaType: 'movie' | 'tv'; id: number; language?: Lang }, opts?: Opts) {
   return useQuery<string | null>({
