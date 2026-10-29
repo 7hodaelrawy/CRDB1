@@ -80,6 +80,23 @@ function StateBlock({ title, text, action, onAction, error = false }: { title: s
   return <div className="state" role={error ? 'alert' : undefined}><div style={{ color: error ? 'hsl(var(--destructive))' : 'hsl(var(--primary))', marginBottom: 12 }}>{error ? <CircleAlert size={25} style={{ margin: 'auto' }} /> : <Clapperboard size={25} style={{ margin: 'auto' }} />}</div><h2>{title}</h2><p>{text}</p>{action && <button className="cta" onClick={onAction}>{action}</button>}</div>;
 }
 function LoadingGrid() { return <div className="media-grid">{Array.from({ length: 10 }, (_, i) => <div key={i}><div className="skeleton" style={{ aspectRatio: '2/3' }} /><div className="skeleton" style={{ height: 13, marginTop: 12, width: '80%' }} /><div className="skeleton" style={{ height: 10, marginTop: 8, width: '42%' }} /></div>)}</div>; }
+
+function TrailerModal({ videoKey, title, onClose }: { videoKey: string; title: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [onClose]);
+  return <div className="trailer-modal" role="dialog" aria-modal="true" onClick={onClose}>
+    <div className="trailer-box" onClick={e => e.stopPropagation()}>
+      <div className="trailer-head"><span>{title}</span><button type="button" className="trailer-close" onClick={onClose} aria-label="Close"><X size={20} /></button></div>
+      <div className="trailer-frame"><iframe src={`https://www.youtube-nocookie.com/embed/${videoKey}?autoplay=1&rel=0&modestbranding=1&playsinline=1`} title={`${title} trailer`} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen /></div>
+    </div>
+  </div>;
+}
+
 function PosterCard({ item, kind, onSelect }: { item: MediaItem | Record<string, unknown>; kind?: string; onSelect?: () => void }) {
   const name = titleOf(item);
   const href = entryPath(item, kind);
@@ -117,7 +134,7 @@ function HomePage() {
   const top10 = (q.data?.sections?.find(s => s.id === 'trending')?.items || []).slice(0, 10);
   const trailerQuery = useGetCinemaTrailer(
     { mediaType: hero?.media_type === 'tv' ? 'tv' : 'movie', id: Number(hero?.id || 0), language: lang },
-        { query: { enabled: false } },
+    { query: { enabled: !!hero } },
   );
   const trailerKey = trailerQuery.data || null;
   const watch = () => {
@@ -128,27 +145,22 @@ function HomePage() {
     {q.isLoading ? <div className="skeleton" style={{ height: 470, marginTop: 22, borderRadius: 26 }} /> : q.isError ? <StateBlock error title={t.failed} text={t.noResultsSub} action={t.retry} onAction={() => q.refetch()} /> : <>
       {hero && <section className="imdb-hero">
         <div className="imdb-stage">
-          {playing && trailerKey ? <div className="imdb-trailer">
-            <iframe src={`https://www.youtube-nocookie.com/embed/${trailerKey}?autoplay=1&rel=0&modestbranding=1`} title={`${titleOf(hero)} trailer`} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
-            <button type="button" className="imdb-trailer-close" onClick={() => setPlaying(false)} aria-label="Close"><X size={20} /></button>
-          </div> : <>
-            {img(hero.backdrop_path, 'original') && <img key={hero.id} className="imdb-stage-img" src={img(hero.backdrop_path, 'original')} alt="" />}
-            <div className="imdb-stage-shade" />
-            {heroes.length > 1 && <>
-              <button className="imdb-arrow prev" onClick={() => go(-1)} aria-label="Previous"><ChevronLeft size={26} /></button>
-              <button className="imdb-arrow next" onClick={() => go(1)} aria-label="Next"><ChevronRight size={26} /></button>
-            </>}
-            <div className="imdb-stage-info">
-              {img(hero.poster_path, 'w342') && <Link href={entryPath(hero)}><img className="imdb-stage-poster" src={img(hero.poster_path, 'w342')} alt={titleOf(hero)} /></Link>}
-              <div className="imdb-stage-text">
-                <button type="button" className="imdb-play" onClick={watch} aria-label={t.trailer}><Play size={22} fill="currentColor" /></button>
-                <div>
-                  <h1><Link href={entryPath(hero)}>{titleOf(hero)}</Link></h1>
-                  <div className="imdb-stage-meta">{ratingOf(hero) > 0 && <span className="score"><Star size={13} fill="currentColor" /> {ratingOf(hero).toFixed(1)}</span>}<span>{dateOf(hero) || yearOf(hero)}</span><span>{hero.media_type === 'tv' ? t.tv : t.movies}</span>{trailerKey && <span className="imdb-watch">{t.trailer}</span>}</div>
-                </div>
+          {img(hero.backdrop_path, 'original') && <img key={hero.id} className="imdb-stage-img" src={img(hero.backdrop_path, 'original')} alt="" />}
+          <div className="imdb-stage-shade" />
+          {heroes.length > 1 && <>
+            <button className="imdb-arrow prev" onClick={() => go(-1)} aria-label="Previous"><ChevronLeft size={26} /></button>
+            <button className="imdb-arrow next" onClick={() => go(1)} aria-label="Next"><ChevronRight size={26} /></button>
+          </>}
+          <div className="imdb-stage-info">
+            {img(hero.poster_path, 'w342') && <Link href={entryPath(hero)}><img className="imdb-stage-poster" src={img(hero.poster_path, 'w342')} alt={titleOf(hero)} /></Link>}
+            <div className="imdb-stage-text">
+              <button type="button" className="imdb-play" onClick={watch} aria-label={t.trailer}><Play size={22} fill="currentColor" /></button>
+              <div>
+                <h1><Link href={entryPath(hero)}>{titleOf(hero)}</Link></h1>
+                <div className="imdb-stage-meta">{ratingOf(hero) > 0 && <span className="score"><Star size={13} fill="currentColor" /> {ratingOf(hero).toFixed(1)}</span>}<span>{dateOf(hero) || yearOf(hero)}</span><span>{hero.media_type === 'tv' ? t.tv : t.movies}</span>{trailerKey && <span className="imdb-watch">{t.trailer}</span>}</div>
               </div>
             </div>
-          </>}
+          </div>
         </div>
         <aside className="imdb-side">
           <h3>{lang === 'ar' ? 'التالي' : 'Up next'}</h3>
@@ -165,6 +177,7 @@ function HomePage() {
       {!hero && !q.data?.sections?.length && <StateBlock title={t.noResults} text={t.noResultsSub} />}
       {q.data?.sections?.map(section => <Section key={section.id} title={section.title} items={section.items} kind={section.mediaType === 'person' ? undefined : section.mediaType} browseLabel={t.browse} />)}
     </>}
+    {playing && trailerKey && hero && <TrailerModal videoKey={trailerKey} title={titleOf(hero)} onClose={() => setPlaying(false)} />}
   </PageFrame>;
 }
 
@@ -212,9 +225,10 @@ function DetailPage({ kind }: { kind: 'movie' | 'tv' }) {
   const params = { mediaType: kind, id, language: lang };
   const q = useGetCinemaTitle(params, { query: { enabled: Number.isFinite(id) && id > 0, queryKey: getGetCinemaTitleQueryKey(params) } });
   const [seasonNo, setSeasonNo] = useState<number | null>(null);
+  const [trailerOpen, setTrailerOpen] = useState(false);
   const title = q.data as MediaDetails | undefined;
   const seasons = (title?.seasons as Array<Record<string, unknown>> | undefined) || [];
-  useEffect(() => { setSeasonNo(null); }, [id]);
+  useEffect(() => { setSeasonNo(null); setTrailerOpen(false); }, [id]);
   const seasonParams = { id, seasonNumber: seasonNo ?? 0, language: lang };
   const season = useGetCinemaSeason(seasonParams, { query: { enabled: kind === 'tv' && seasonNo !== null, queryKey: getGetCinemaSeasonQueryKey(seasonParams) } });
   const credits = title?.credits as Record<string, unknown> | undefined;
@@ -242,19 +256,27 @@ function DetailPage({ kind }: { kind: 'movie' | 'tv' }) {
     <section className="detail-hero">{img(title.backdrop_path as string, 'original') && <img className="detail-backdrop" src={img(title.backdrop_path as string, 'original')} alt="" />}
       <div className="detail-head">{img(title.poster_path as string) ? <img className="detail-poster" src={img(title.poster_path as string)} alt={titleOf(title)} /> : <div className="detail-poster" />}
         <div><div className="eyebrow">{kind === 'movie' ? t.movies : t.tv}</div><h1 className="detail-title">{titleOf(title)}</h1><div className="detail-meta">{ratingOf(title) > 0 && <span className="score"><Star size={13} fill="currentColor" /> {ratingOf(title).toFixed(1)} ({Number(title.vote_count || 0).toLocaleString()})</span>}<span><CalendarDays size={13} style={{ verticalAlign: 'middle' }} /> {dateOf(title) || '—'}</span>{typeof title.runtime === 'number' && <span>{title.runtime} min</span>}{typeof title.number_of_seasons === 'number' && <span>{title.number_of_seasons} {t.seasons.toLowerCase()}</span>}</div><p className="detail-overview">{String(title.overview || '')}</p><div className="genre-pills">{genres.map(g => <span key={g.id}>{g.name}</span>)}</div>
-          <button type="button" className={`wl-cta ${inList ? 'on' : ''}`} onClick={() => wl.toggle(toSaved(title, kind))}>{inList ? <BookmarkCheck size={17} /> : <BookmarkPlus size={17} />}{inList ? t.inWatchlist : t.addWatchlist}</button></div>
+          <div className="wl-row">
+            {trailer && <button type="button" className="wl-cta play" onClick={() => setTrailerOpen(true)}><Play size={16} fill="currentColor" />{t.trailer}</button>}
+            <button type="button" className={`wl-cta ${inList ? 'on' : ''}`} onClick={() => wl.toggle(toSaved(title, kind))}>{inList ? <BookmarkCheck size={17} /> : <BookmarkPlus size={17} />}{inList ? t.inWatchlist : t.addWatchlist}</button>
+          </div></div>
       </div>
     </section>
     <div className="detail-body"><div className="detail-columns"><div>
       <section className="section"><div className="section-head"><div><h2 className="section-title">{t.castTitle}</h2><p className="section-kicker">{t.crew}</p></div></div>{cast.length ? <div className="cast-row">{cast.slice(0, 18).map((person, i) => <Link href={`/person/${person.id}`} className="cast-card" key={`${person.id}-${i}`} data-testid={`link-cast-${person.id}`}>{img(person.profile_path as string, 'w185') ? <img className="cast-photo" src={img(person.profile_path as string, 'w185')} alt={String(person.name)} loading="lazy" /> : <div className="cast-photo" /> }<div className="cast-name">{String(person.name || '')}</div><div className="cast-role">{t.castRole} {String(person.character || '')}</div></Link>)}</div> : <p className="subhead">—</p>}</section>
       {crew.length > 0 && <section className="section"><h2 className="section-title">{t.crew}</h2><div className="cast-row" style={{ marginTop: 17 }}>{crew.filter(c => ['Director', 'Writer', 'Executive Producer', 'Creator'].includes(String(c.job))).slice(0, 12).map((person, i) => <Link href={`/person/${person.id}`} className="cast-card" key={`${person.id}-${i}`}>{img(person.profile_path as string, 'w185') ? <img className="cast-photo" src={img(person.profile_path as string, 'w185')} alt={String(person.name)} loading="lazy" /> : <div className="cast-photo" />}<div className="cast-name">{String(person.name)}</div><div className="cast-role">{String(person.job)}</div></Link>)}</div></section>}
-      {trailer && <section className="section"><h2 className="section-title">{t.trailer}</h2><iframe className="video-frame" src={`https://www.youtube-nocookie.com/embed/${String(trailer.key)}`} title={`${titleOf(title)} trailer`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></section>}
+      {trailer && <section className="section"><h2 className="section-title">{t.trailer}</h2>
+        <button type="button" className="trailer-card" onClick={() => setTrailerOpen(true)} aria-label={t.trailer}>
+          {img((title.backdrop_path as string) || (stills[0]?.file_path as string), 'w780') && <img src={img((title.backdrop_path as string) || (stills[0]?.file_path as string), 'w780')} alt="" />}
+          <span className="trailer-card-play"><Play size={28} fill="currentColor" /></span>
+        </button></section>}
       {(stills.length + posters.length) > 0 && <section className="section"><h2 className="section-title">{t.images}</h2><div className="image-strip" style={{ marginTop: 17 }}>{[...stills, ...posters].map((image, i) => <img key={i} src={img(image.file_path as string, 'w500')} alt="" loading="lazy" />)}</div></section>}
       {kind === 'tv' && seasons.length > 0 && <section className="section"><div className="section-head"><div><h2 className="section-title">{t.seasons}</h2></div><select className="field" aria-label={t.season} value={seasonNo ?? ''} onChange={e => setSeasonNo(e.target.value === '' ? null : Number(e.target.value))} data-testid="select-season"><option value="">{t.seasons}</option>{seasons.map(s => <option key={String(s.id)} value={Number(s.season_number)}>{String(s.name || `${t.season} ${s.season_number}`)}</option>)}</select></div>
         {seasonNo !== null && (season.isLoading ? <div className="skeleton" style={{ height: 160 }} /> : season.isError ? <StateBlock error title={t.failed} text={t.noResultsSub} action={t.retry} onAction={() => season.refetch()} /> : <div className="episode-list">{((season.data?.episodes || []) as Array<Record<string, unknown>>).map((episode, i) => <article className="episode" key={String(episode.id || i)}>{img(episode.still_path as string, 'w300') ? <img src={img(episode.still_path as string, 'w300')} alt="" /> : <div className="skeleton" />}<div><h3>{String(episode.episode_number || i + 1)}. {String(episode.name || '')}</h3><p>{String(episode.air_date || '')} · {String(episode.runtime || '')} min</p><p>{String(episode.overview || '')}</p></div></article>)}</div>)}</section>}
       {providerList.length > 0 && <section className="section"><h2 className="section-title">{t.watchProviders}</h2><div style={{ display: 'flex', gap: 12, marginTop: 15, flexWrap: 'wrap' }}>{providerList.map((v, i) => <div key={i} style={{ textAlign: 'center', fontSize: 10, width: 65 }}>{img(v.logo_path as string, 'w92') && <img src={img(v.logo_path as string, 'w92')} alt={String(v.provider_name)} style={{ width: 46, height: 46, objectFit: 'cover', borderRadius: 12, display: 'block', margin: '0 auto 6px' }} />}{String(v.provider_name)}</div>)}</div></section>}
       {recoItems.length > 0 && <Section title={t.recommendations} items={recoItems} kind={recommendationsLinkKind} browseLabel={t.browse} />}
     </div><aside className="info-panel"><h3 style={{ margin: '0 0 5px', font: '800 17px var(--app-font-serif)' }}>{t.details}</h3>{[[t.release, dateOf(title)], [t.runtime, title.runtime ? `${title.runtime} min` : title.episode_run_time ? `${(title.episode_run_time as number[])[0]} min` : '—'], [t.status, String(title.status || '—')], [t.language, String(title.original_language || '—')], [t.knownFor, String(title.tagline || '—')]].map(([label, value]) => <div className="info-line" key={label}><strong>{label}</strong><span>{value}</span></div>)}{region && providerList.length === 0 && <div className="info-line"><strong>{t.watchProviders}</strong><span>{t.providersEmpty}</span></div>}</aside></div></div>
+    {trailerOpen && trailer && <TrailerModal videoKey={String(trailer.key)} title={titleOf(title)} onClose={() => setTrailerOpen(false)} />}
   </div>;
 }
 
