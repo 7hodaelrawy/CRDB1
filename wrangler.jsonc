@@ -4,10 +4,8 @@
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/img/*"]
-  },
-  "vars": {
-    "TMDB_KEY": "5e11ae6a3daf0069b9c7c9f603bb2355"
+    "run_worker_first": ["/api/*", "/img/*", "/movie/*", "/tv/*", "/sitemap.xml"]
   }
 }
