@@ -174,3 +174,31 @@ a { color: inherit; text-decoration: none; }
 .wtw-note { margin: 12px 0 0; font-size: 13px; color: hsl(var(--muted-foreground)); }
 .wtw-note a { color: hsl(var(--primary)); font-weight: 700; }
 .wtw-credit { margin-top: 16px; font-size: 11px; color: hsl(var(--muted-foreground)); }
+/* ---------- calendar ---------- */
+.cal-month-block { margin-top: 34px; }
+.cal-month { margin: 0 0 14px; font-size: 22px; font-weight: 800; border-inline-start: 4px solid hsl(var(--primary)); padding-inline-start: 12px; }
+.cal-list { display: flex; flex-direction: column; gap: 12px; }
+.cal-item {
+  display: grid; grid-template-columns: 64px 92px minmax(0, 1fr); gap: 16px; align-items: start;
+  padding: 14px; border: 1px solid hsl(var(--border)); border-radius: 18px; background: hsl(var(--card));
+}
+.cal-date { text-align: center; padding-top: 6px; }
+.cal-date strong { display: block; font-size: 30px; line-height: 1; font-weight: 800; color: hsl(var(--primary)); }
+.cal-date span { display: block; margin-top: 4px; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.cal-poster img, .cal-poster-ph { width: 92px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 10px; display: block; background: hsl(var(--muted)); }
+.cal-title { display: block; font-size: 18px; font-weight: 800; color: inherit; text-decoration: none; }
+.cal-title:hover { color: hsl(var(--primary)); }
+.cal-overview { margin: 6px 0 0; font-size: 14px; line-height: 1.6; color: hsl(var(--muted-foreground)); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.cal-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.cal-count { padding: 5px 12px; border-radius: 999px; background: hsl(var(--primary)); color: #fff; font-size: 12px; font-weight: 800; }
+.cal-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid hsl(var(--border)); background: transparent; color: inherit; font-size: 12px; font-weight: 700;
+}
+.cal-btn:hover { border-color: hsl(var(--primary)); color: hsl(var(--primary)); }
+.cal-btn.on { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: #fff; }
+@media (max-width: 650px) {
+  .cal-item { grid-template-columns: 52px 74px minmax(0, 1fr); gap: 12px; padding: 12px; }
+  .cal-poster img, .cal-poster-ph { width: 74px; }
+  .cal-date strong { font-size: 24px; }
+}
