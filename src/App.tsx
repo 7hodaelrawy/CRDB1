@@ -233,4 +233,70 @@ function DetailPage({ kind }: { kind: 'movie' | 'tv' }) {
   const providerResults = providers?.results as Record<string, unknown> | undefined;
   const region = (providerResults?.US || providerResults?.GB || Object.values(providerResults || {})[0]) as Record<string, unknown> | undefined;
   const providerList = [...((region?.flatrate as Array<Record<string, unknown>>) || []), ...((region?.rent as Array<Record<string, unknown>>) || [])].slice(0, 5);
-  if (q.isLoading)
+  if (q.isLoading) return <PageFrame><div className="skeleton" style={{ height: 400 }} /><div className="skeleton" style={{ height: 230, marginTop: 24 }} /></PageFrame>;
+  if (q.isError || !title) return <PageFrame><StateBlock error title={t.failed} text={t.noResultsSub} action={t.retry} onAction={() => q.refetch()} /></PageFrame>;
+  const genres = (title.genres as Array<{ id: number; name: string }> | undefined) || [];
+  const recommendationsLinkKind = kind;
+  const inList = wl.has(id, kind);
+  return <div className="page" style={{ paddingTop: 38 }}>
+    <section className="detail-hero">{img(title.backdrop_path as string, 'original') && <img className="detail-backdrop" src={img(title.backdrop_path as string, 'original')} alt="" />}
+      <div className="detail-head">{img(title.poster_path as string) ? <img className="detail-poster" src={img(title.poster_path as string)} alt={titleOf(title)} /> : <div className="detail-poster" />}
+        <div><div className="eyebrow">{kind === 'movie' ? t.movies : t.tv}</div><h1 className="detail-title">{titleOf(title)}</h1><div className="detail-meta">{ratingOf(title) > 0 && <span className="score"><Star size={13} fill="currentColor" /> {ratingOf(title).toFixed(1)} ({Number(title.vote_count || 0).toLocaleString()})</span>}<span><CalendarDays size={13} style={{ verticalAlign: 'middle' }} /> {dateOf(title) || '—'}</span>{typeof title.runtime === 'number' && <span>{title.runtime} min</span>}{typeof title.number_of_seasons === 'number' && <span>{title.number_of_seasons} {t.seasons.toLowerCase()}</span>}</div><p className="detail-overview">{String(title.overview || '')}</p><div className="genre-pills">{genres.map(g => <span key={g.id}>{g.name}</span>)}</div>
+          <button type="button" className={`wl-cta ${inList ? 'on' : ''}`} onClick={() => wl.toggle(toSaved(title, kind))}>{inList ? <BookmarkCheck size={17} /> : <BookmarkPlus size={17} />}{inList ? t.inWatchlist : t.addWatchlist}</button></div>
+      </div>
+    </section>
+    <div className="detail-body"><div className="detail-columns"><div>
+      <section className="section"><div className="section-head"><div><h2 className="section-title">{t.castTitle}</h2><p className="section-kicker">{t.crew}</p></div></div>{cast.length ? <div className="cast-row">{cast.slice(0, 18).map((person, i) => <Link href={`/person/${person.id}`} className="cast-card" key={`${person.id}-${i}`} data-testid={`link-cast-${person.id}`}>{img(person.profile_path as string, 'w185') ? <img className="cast-photo" src={img(person.profile_path as string, 'w185')} alt={String(person.name)} loading="lazy" /> : <div className="cast-photo" /> }<div className="cast-name">{String(person.name || '')}</div><div className="cast-role">{t.castRole} {String(person.character || '')}</div></Link>)}</div> : <p className="subhead">—</p>}</section>
+      {crew.length > 0 && <section className="section"><h2 className="section-title">{t.crew}</h2><div className="cast-row" style={{ marginTop: 17 }}>{crew.filter(c => ['Director', 'Writer', 'Executive Producer', 'Creator'].includes(String(c.job))).slice(0, 12).map((person, i) => <Link href={`/person/${person.id}`} className="cast-card" key={`${person.id}-${i}`}>{img(person.profile_path as string, 'w185') ? <img className="cast-photo" src={img(person.profile_path as string, 'w185')} alt={String(person.name)} loading="lazy" /> : <div className="cast-photo" />}<div className="cast-name">{String(person.name)}</div><div className="cast-role">{String(person.job)}</div></Link>)}</div></section>}
+      {trailer && <section className="section"><h2 className="section-title">{t.trailer}</h2><iframe className="video-frame" src={`https://www.youtube-nocookie.com/embed/${String(trailer.key)}`} title={`${titleOf(title)} trailer`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></section>}
+      {(stills.length + posters.length) > 0 && <section className="section"><h2 className="section-title">{t.images}</h2><div className="image-strip" style={{ marginTop: 17 }}>{[...stills, ...posters].map((image, i) => <img key={i} src={img(image.file_path as string, 'w500')} alt="" loading="lazy" />)}</div></section>}
+      {kind === 'tv' && seasons.length > 0 && <section className="section"><div className="section-head"><div><h2 className="section-title">{t.seasons}</h2></div><select className="field" aria-label={t.season} value={seasonNo ?? ''} onChange={e => setSeasonNo(e.target.value === '' ? null : Number(e.target.value))} data-testid="select-season"><option value="">{t.seasons}</option>{seasons.map(s => <option key={String(s.id)} value={Number(s.season_number)}>{String(s.name || `${t.season} ${s.season_number}`)}</option>)}</select></div>
+        {seasonNo !== null && (season.isLoading ? <div className="skeleton" style={{ height: 160 }} /> : season.isError ? <StateBlock error title={t.failed} text={t.noResultsSub} action={t.retry} onAction={() => season.refetch()} /> : <div className="episode-list">{((season.data?.episodes || []) as Array<Record<string, unknown>>).map((episode, i) => <article className="episode" key={String(episode.id || i)}>{img(episode.still_path as string, 'w300') ? <img src={img(episode.still_path as string, 'w300')} alt="" /> : <div className="skeleton" />}<div><h3>{String(episode.episode_number || i + 1)}. {String(episode.name || '')}</h3><p>{String(episode.air_date || '')} · {String(episode.runtime || '')} min</p><p>{String(episode.overview || '')}</p></div></article>)}</div>)}</section>}
+      {providerList.length > 0 && <section className="section"><h2 className="section-title">{t.watchProviders}</h2><div style={{ display: 'flex', gap: 12, marginTop: 15, flexWrap: 'wrap' }}>{providerList.map((v, i) => <div key={i} style={{ textAlign: 'center', fontSize: 10, width: 65 }}>{img(v.logo_path as string, 'w92') && <img src={img(v.logo_path as string, 'w92')} alt={String(v.provider_name)} style={{ width: 46, height: 46, objectFit: 'cover', borderRadius: 12, display: 'block', margin: '0 auto 6px' }} />}{String(v.provider_name)}</div>)}</div></section>}
+      {recoItems.length > 0 && <Section title={t.recommendations} items={recoItems} kind={recommendationsLinkKind} browseLabel={t.browse} />}
+    </div><aside className="info-panel"><h3 style={{ margin: '0 0 5px', font: '800 17px var(--app-font-serif)' }}>{t.details}</h3>{[[t.release, dateOf(title)], [t.runtime, title.runtime ? `${title.runtime} min` : title.episode_run_time ? `${(title.episode_run_time as number[])[0]} min` : '—'], [t.status, String(title.status || '—')], [t.language, String(title.original_language || '—')], [t.knownFor, String(title.tagline || '—')]].map(([label, value]) => <div className="info-line" key={label}><strong>{label}</strong><span>{value}</span></div>)}{region && providerList.length === 0 && <div className="info-line"><strong>{t.watchProviders}</strong><span>{t.providersEmpty}</span></div>}</aside></div></div>
+  </div>;
+}
+
+function PersonPage() {
+  const p = useParams<{ id: string }>(); const id = Number(p.id); const { lang, t } = usePreferences();
+  const params = { id, language: lang };
+  const q = useGetCinemaPerson(params, { query: { enabled: Number.isFinite(id) && id > 0, queryKey: getGetCinemaPersonQueryKey(params) } });
+  const person = q.data as PersonDetails | undefined;
+  const credits = person?.combined_credits as Record<string, unknown> | undefined;
+  const filmography = ((credits?.cast as MediaItem[] | undefined) || []).slice().sort((a, b) => (dateOf(b) || '').localeCompare(dateOf(a) || ''));
+  if (q.isLoading) return <PageFrame><div className="skeleton" style={{ height: 400 }} /></PageFrame>;
+  if (q.isError || !person) return <PageFrame><StateBlock error title={t.failed} text={t.noResultsSub} action={t.retry} onAction={() => q.refetch()} /></PageFrame>;
+  return <PageFrame><div className="person-layout"><div>{img(person.profile_path, 'h632') ? <img className="person-photo" src={img(person.profile_path, 'h632')} alt={person.name} /> : <div className="person-photo" />}</div><div><div className="eyebrow">{t.people}</div><h1 className="page-title">{person.name}</h1><div className="detail-meta" style={{ color: 'hsl(var(--muted-foreground))' }}>{person.known_for_department && <span>{person.known_for_department}</span>}{person.birthday && <span>{t.born}: {person.birthday}</span>}{person.place_of_birth && <span>{t.birthplace}: {person.place_of_birth}</span>}</div><h2 className="section-title" style={{ marginTop: 27 }}>{t.biography}</h2><p className="bio">{person.biography || t.emptyBio}</p></div></div>
+    {filmography.length > 0 && <section className="section"><div className="section-head"><h2 className="section-title">{t.filmography}</h2></div><div className="filmography">{filmography.map(item => <div className="grid-poster" key={`${item.media_type}-${item.id}`}><PosterCard item={item} kind={item.media_type || 'movie'} /></div>)}</div></section>}
+  </PageFrame>;
+}
+
+function WatchlistPage() {
+  const { t } = usePreferences();
+  const wl = useWatchlist();
+  return <PageFrame><div className="eyebrow">{t.watchlist}</div><h1 className="page-title">{t.watchlist}</h1><p className="subhead">{t.watchlistSub}</p>
+    {wl.items.length ? <div className="media-grid">{wl.items.map(item => <div className="grid-poster" key={`${item.media_type}-${item.id}`}><PosterCard item={{ id: item.id, media_type: item.media_type, title: item.title, poster_path: item.poster_path, vote_average: item.vote_average, release_date: item.date }} kind={item.media_type} /></div>)}</div> : <StateBlock title={t.watchlistEmpty} text={t.watchlistEmptySub} />}
+  </PageFrame>;
+}
+
+function Router() {
+  const [location] = useLocation();
+  return <ErrorBoundary resetKey={location}><Shell><Switch>
+    <Route path="/" component={HomePage} />
+    <Route path="/movies"><BrowsePage kind="movie" /></Route>
+    <Route path="/tv"><BrowsePage kind="tv" /></Route>
+    <Route path="/search" component={SearchPage} />
+    <Route path="/watchlist" component={WatchlistPage} />
+    <Route path="/movie/:id"><DetailPage kind="movie" /></Route>
+    <Route path="/tv/:id"><DetailPage kind="tv" /></Route>
+    <Route path="/person/:id" component={PersonPage} />
+    <Route component={NotFound} />
+  </Switch></Shell></ErrorBoundary>;
+}
+
+function App() {
+  return <QueryClientProvider client={client}><TooltipProvider><PreferenceProvider><Router /></PreferenceProvider><Toaster /></TooltipProvider></QueryClientProvider>;
+}
+
+export default App;
