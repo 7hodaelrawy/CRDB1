@@ -15,8 +15,10 @@ interface TmdbItem {
 }
 
 // ===== إعدادات =====
-const SITE_NAME = 'Narvelo';
+const SITE_NAME = 'CRDB';
+// لما تشتري الدومين حط هنا مثلاً 'https://crdb.com' (من غير / في الآخر). فاضي = نفس الدومين اللي الزائر فيه.
 const CANONICAL_ORIGIN = '';
+// شكل روابط صفحات الأفلام والمسلسلات في موقعك
 const TITLE_ROUTE = /^\/(movie|tv)\/(\d+)(?:[-/].*)?$/;
 
 const getKey = (env: Env) => (env.TMDB_KEY || env.TMDB_API_KEY || '').trim();
@@ -209,7 +211,7 @@ ${items}
   });
 }
 
-// sitemap ديناميكي: الصفحة الرئيسية + صفحات Top + أعلى 100 فيلم + أعلى 100 مسلسل
+// sitemap ديناميكي
 async function sitemap(env: Env, url: URL): Promise<Response> {
   type List = { results?: { id: number }[] };
   const origin = CANONICAL_ORIGIN || url.origin;
@@ -261,7 +263,7 @@ export default {
       });
     }
 
-    // 3. عرض الموقع (الملفات) وحقن كود الـ CSP
+    // 3. الروابط الديناميكية
     if (url.pathname === '/sitemap.xml') return sitemap(env, url);
     if (url.pathname === '/top-movies') return topPage(env, url, 'movie');
     if (url.pathname === '/top-tv') return topPage(env, url, 'tv');
@@ -272,6 +274,7 @@ export default {
       if (page) return page;
     }
 
+    // 4. عرض الموقع (الملفات) وحقن كود الـ CSP
     if (env.ASSETS) {
       const res = await env.ASSETS.fetch(request);
       const newHeaders = new Headers(res.headers);
