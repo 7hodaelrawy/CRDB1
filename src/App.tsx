@@ -117,7 +117,7 @@ function HomePage() {
   const top10 = (q.data?.sections?.find(s => s.id === 'trending')?.items || []).slice(0, 10);
   const trailerQuery = useGetCinemaTrailer(
     { mediaType: hero?.media_type === 'tv' ? 'tv' : 'movie', id: Number(hero?.id || 0), language: lang },
-    { query: { enabled: !!hero } },
+        { query: { enabled: false } },
   );
   const trailerKey = trailerQuery.data || null;
   const watch = () => {
