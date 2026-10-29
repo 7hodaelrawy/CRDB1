@@ -93,7 +93,6 @@ export function useGetCinemaHome(params: { language?: Lang }, opts?: Opts) {
         .slice()
         .sort((a, b) => String(a.release_date || '').localeCompare(String(b.release_date || '')))
         .slice(0, 20);
-      // الـ Hero: أقوى الأفلام اللي لسه هتنزل (بالشعبية)، ولو قليلة نكمل بالرائج
       const upcomingHero = soonAll
         .filter(i => i.backdrop_path)
         .sort((a, b) => Number(b.popularity || 0) - Number(a.popularity || 0))
@@ -114,6 +113,28 @@ export function useGetCinemaHome(params: { language?: Lang }, opts?: Opts) {
           { id: 'top-tv', title: ar ? 'أفضل المسلسلات تقييماً' : 'Top rated series', mediaType: 'tv', items: topTv },
         ],
       };
+    },
+  });
+}
+
+/* ---------- Trailer (YouTube key) ---------- */
+export function useGetCinemaTrailer(p: { mediaType: 'movie' | 'tv'; id: number; language?: Lang }, opts?: Opts) {
+  return useQuery<string | null>({
+    queryKey: ['cinema', 'trailer', p],
+    staleTime: 30 * 60 * 1000,
+    ...opts?.query,
+    queryFn: async () => {
+      const lang = p.language || 'en';
+      const data = await tmdb<{ results?: Array<{ key: string; site: string; type: string; official?: boolean }> }>(
+        `/${p.mediaType}/${p.id}/videos`,
+        { include_video_language: `en,${lang}` },
+      );
+      const vids = (data.results || []).filter(v => v.site === 'YouTube');
+      const best =
+        vids.find(v => v.type === 'Trailer' && v.official) ||
+        vids.find(v => v.type === 'Trailer') ||
+        vids.find(v => v.type === 'Teaser');
+      return best ? best.key : null;
     },
   });
 }
