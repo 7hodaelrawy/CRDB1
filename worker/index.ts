@@ -1,17 +1,7 @@
-interface D1Stmt {
-  bind(...values: unknown[]): D1Stmt;
-  first<T = unknown>(): Promise<T | null>;
-  run(): Promise<unknown>;
-}
-interface D1Like {
-  prepare(query: string): D1Stmt;
-}
-
 interface Env {
   TMDB_KEY?: string;
   TMDB_API_KEY?: string;
   ASSETS?: { fetch: (request: Request) => Promise<Response> };
-  DB?: D1Like;
 }
 
 interface TmdbItem {
@@ -25,17 +15,11 @@ interface TmdbItem {
 }
 
 // ===== إعدادات =====
-const SITE_NAME = 'CRDb';
-// لما تشتري الدومين حط هنا مثلاً 'https://example.com' (من غير / في الآخر). فاضي = نفس الدومين اللي الزائر فيه.
+const SITE_NAME = 'Narvelo';
+// لما تشتري الدومين حط هنا مثلاً 'https://narvelo.com' (من غير / في الآخر). فاضي = نفس الدومين اللي الزائر فيه.
 const CANONICAL_ORIGIN = '';
 // شكل روابط صفحات الأفلام والمسلسلات في موقعك
 const TITLE_ROUTE = /^\/(movie|tv)\/(\d+)(?:[-/].*)?$/;
-// الدول العربية (لحساب تقييم الجمهور العربي)
-const ARAB_COUNTRIES = [
-  'EG', 'SA', 'AE', 'KW', 'QA', 'BH', 'OM', 'JO', 'LB', 'SY', 'IQ',
-  'PS', 'YE', 'LY', 'TN', 'DZ', 'MA', 'SD', 'MR', 'SO', 'DJ', 'KM',
-];
-const ARAB_SQL = ARAB_COUNTRIES.map((c) => `'${c}'`).join(',');
 
 const getKey = (env: Env) => (env.TMDB_KEY || env.TMDB_API_KEY || '').trim();
 
@@ -46,12 +30,6 @@ const clip = (s: string, n = 160) => {
   const t = s.replace(/\s+/g, ' ').trim();
   return t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t;
 };
-
-const jsonResponse = (data: unknown, status = 200, extra?: Record<string, string>) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...(extra || {}) },
-  });
 
 async function tmdb<T>(env: Env, path: string, params: Record<string, string> = {}): Promise<T | null> {
   try {
@@ -69,100 +47,7 @@ async function tmdb<T>(env: Env, path: string, params: Record<string, string> = 
   }
 }
 
-// ===== التقييمات (D1) =====
-const round1 = (x: number) => Math.round(x * 10) / 10;
-
-function getVisitor(request: Request): string | null {
-  const m = (request.headers.get('cookie') || '').match(/(?:^|;\s*)nv_vid=([A-Za-z0-9-]{16,64})/);
-  return m ? m[1] : null;
-}
-
-async function ratingStats(db: D1Like, kind: string, id: number, visitor: string | null) {
-  const row = await db
-    .prepare(
-      `SELECT COUNT(*) AS n,
-              AVG(score) AS avg,
-              SUM(CASE WHEN country IN (${ARAB_SQL}) THEN 1 ELSE 0 END) AS an,
-              AVG(CASE WHEN country IN (${ARAB_SQL}) THEN score END) AS aavg
-       FROM ratings WHERE kind = ? AND tmdb_id = ?`,
-    )
-    .bind(kind, id)
-    .first<{ n: number; avg: number | null; an: number | null; aavg: number | null }>();
-
-  const mine = visitor
-    ? await db
-        .prepare('SELECT score FROM ratings WHERE kind = ? AND tmdb_id = ? AND visitor = ?')
-        .bind(kind, id, visitor)
-        .first<{ score: number }>()
-    : null;
-
-  return {
-    count: row?.n ?? 0,
-    avg: row?.avg != null ? round1(row.avg) : null,
-    arabCount: row?.an ?? 0,
-    arabAvg: row?.aavg != null ? round1(row.aavg) : null,
-    mine: mine?.score ?? null,
-  };
-}
-
-async function getRating(request: Request, env: Env, kind: string, id: number): Promise<Response> {
-  if (!env.DB) return jsonResponse({ error: 'db_not_configured' }, 503);
-  return jsonResponse(await ratingStats(env.DB, kind, id, getVisitor(request)));
-}
-
-async function postRating(request: Request, env: Env, url: URL): Promise<Response> {
-  if (!env.DB) return jsonResponse({ error: 'db_not_configured' }, 503);
-
-  const origin = request.headers.get('origin');
-  if (origin && origin !== url.origin) return jsonResponse({ error: 'forbidden' }, 403);
-
-  let body: { kind?: unknown; id?: unknown; score?: unknown };
-  try {
-    body = (await request.json()) as { kind?: unknown; id?: unknown; score?: unknown };
-  } catch {
-    return jsonResponse({ error: 'bad_request' }, 400);
-  }
-
-  const kind = body.kind;
-  const id = Number(body.id);
-  const score = Number(body.score);
-  if (
-    (kind !== 'movie' && kind !== 'tv') ||
-    !Number.isInteger(id) || id < 1 || id > 100000000 ||
-    !Number.isInteger(score) || score < 1 || score > 10
-  ) {
-    return jsonResponse({ error: 'bad_request' }, 400);
-  }
-
-  // نتأكد إن الفيلم/المسلسل موجود فعلاً (عشان مفيش أرقام عشوائية تتخزن)
-  if (!(await tmdb(env, `${kind}/${id}`))) return jsonResponse({ error: 'not_found' }, 404);
-
-  let visitor = getVisitor(request);
-  const isNew = !visitor;
-  if (!visitor) visitor = crypto.randomUUID();
-
-  const cf = (request as unknown as { cf?: { country?: string } }).cf;
-  const country = cf?.country || null;
-  const now = Math.floor(Date.now() / 1000);
-
-  await env.DB.prepare(
-    `INSERT INTO ratings (kind, tmdb_id, visitor, score, country, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (kind, tmdb_id, visitor)
-     DO UPDATE SET score = excluded.score, country = excluded.country, updated_at = excluded.updated_at`,
-  )
-    .bind(kind, id, visitor, score, country, now, now)
-    .run();
-
-  const stats = await ratingStats(env.DB, kind, id, visitor);
-  return jsonResponse(
-    stats,
-    200,
-    isNew ? { 'set-cookie': `nv_vid=${visitor}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax` } : undefined,
-  );
-}
-
-// ===== صفحة فيلم/مسلسل: نفس الـ index.html بس بعنوان ووصف وصورة مشاركة خاصة بالعنوان =====
+// صفحة فيلم/مسلسل: نفس الـ index.html بس بعنوان ووصف وصورة مشاركة خاصة بالعنوان
 async function titlePage(env: Env, url: URL, kind: string, id: string): Promise<Response | null> {
   if (!env.ASSETS) return null;
   const shell = await env.ASSETS.fetch(new Request(new URL('/', url).toString()));
@@ -223,7 +108,8 @@ async function titlePage(env: Env, url: URL, kind: string, id: string): Promise<
   return new Response(out.body, { status: 200, headers });
 }
 
-// ===== صفحة Top 250 (أفلام أو مسلسلات) =====
+// sitemap ديناميكي: الصفحة الرئيسية + أعلى 100 فيلم + أعلى 100 مسلسل
+// صفحة Top 250 (أفلام أو مسلسلات)
 async function topPage(env: Env, url: URL, kind: 'movie' | 'tv'): Promise<Response> {
   type Row = {
     id: number;
@@ -326,69 +212,20 @@ ${items}
   });
 }
 
-// ===== sitemap ديناميكي =====
+// sitemap ديناميكي: الصفحة الرئيسية + صفحات Top + أعلى 100 فيلم + أعلى 100 مسلسل
 async function sitemap(env: Env, url: URL): Promise<Response> {
   type List = { results?: { id: number }[] };
   const origin = CANONICAL_ORIGIN || url.origin;
-  const pages = ['1', '2', '3', '4', '5'];
-  const [movies, shows] = await Promise.all([
-    Promise.all(pages.map((p) => tmdb<List>(env, 'movie/top_rated', { page: p }))),
+@@ -118,7 +221,7 @@
     Promise.all(pages.map((p) => tmdb<List>(env, 'tv/top_rated', { page: p }))),
   ]);
 
+  const urls = [`${origin}/`];
   const urls = [`${origin}/`, `${origin}/top-movies`, `${origin}/top-tv`];
   movies.forEach((l) => l?.results?.forEach((m) => urls.push(`${origin}/movie/${m.id}`)));
   shows.forEach((l) => l?.results?.forEach((m) => urls.push(`${origin}/tv/${m.id}`)));
 
-  const xml =
-    `<?xml version="1.0" encoding="UTF-8"?>\n` +
-    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-    urls.map((u) => `  <url><loc>${u}</loc></url>`).join('\n') +
-    `\n</urlset>`;
-
-  return new Response(xml, {
-    headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=86400' },
-  });
-}
-
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-
-    // بلد الزائر (Cloudflare بيحدده تلقائياً)
-    if (url.pathname === '/api/country') {
-      const cf = (request as unknown as { cf?: { country?: string } }).cf;
-      return Response.json(
-        { country: cf?.country || null },
-        { headers: { 'cache-control': 'private, max-age=3600' } },
-      );
-    }
-
-    // التقييمات
-    const rm = url.pathname.match(/^\/api\/rating\/(movie|tv)\/(\d+)$/);
-    if (rm && request.method === 'GET') return getRating(request, env, rm[1], Number(rm[2]));
-    if (url.pathname === '/api/rating' && request.method === 'POST') return postRating(request, env, url);
-
-    if (url.pathname.startsWith('/api/tmdb/')) {
-      const target = new URL('https://api.themoviedb.org/3/' + url.pathname.slice('/api/tmdb/'.length));
-      url.searchParams.forEach((v, k) => target.searchParams.set(k, v));
-      const key = getKey(env);
-      const headers: Record<string, string> = {};
-      if (key.length > 40) headers.Authorization = `Bearer ${key}`;
-      else target.searchParams.set('api_key', key);
-      const res = await fetch(target.toString(), { headers, cf: { cacheTtl: 300, cacheEverything: true } });
-      return new Response(res.body, {
-        status: res.status,
-        headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=300' },
-      });
-    }
-
-    if (url.pathname.startsWith('/img/')) {
-      const res = await fetch('https://image.tmdb.org/t/p/' + url.pathname.slice(5), { cf: { cacheTtl: 86400, cacheEverything: true } });
-      return new Response(res.body, {
-        status: res.status,
-        headers: { 'content-type': res.headers.get('content-type') || 'image/jpeg', 'cache-control': 'public, max-age=86400' },
-      });
+@@ -169,14 +272,16 @@
     }
 
     if (url.pathname === '/sitemap.xml') return sitemap(env, url);
