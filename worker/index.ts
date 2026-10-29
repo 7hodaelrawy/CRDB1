@@ -16,9 +16,7 @@ interface TmdbItem {
 
 // ===== إعدادات =====
 const SITE_NAME = 'Narvelo';
-// لما تشتري الدومين حط هنا مثلاً 'https://narvelo.com' (من غير / في الآخر). فاضي = نفس الدومين اللي الزائر فيه.
 const CANONICAL_ORIGIN = '';
-// شكل روابط صفحات الأفلام والمسلسلات في موقعك
 const TITLE_ROUTE = /^\/(movie|tv)\/(\d+)(?:[-/].*)?$/;
 
 const getKey = (env: Env) => (env.TMDB_KEY || env.TMDB_API_KEY || '').trim();
@@ -54,7 +52,7 @@ async function titlePage(env: Env, url: URL, kind: string, id: string): Promise<
   if (!shell.ok) return shell;
 
   const data = await tmdb<TmdbItem>(env, `${kind}/${id}`, { language: 'ar' });
-  if (!data) return shell; // لو فشل أي حاجة، الموقع يشتغل عادي
+  if (!data) return shell;
   if (!data.overview) {
     const en = await tmdb<TmdbItem>(env, `${kind}/${id}`, { language: 'en-US' });
     if (en?.overview) data.overview = en.overview;
@@ -108,7 +106,6 @@ async function titlePage(env: Env, url: URL, kind: string, id: string): Promise<
   return new Response(out.body, { status: 200, headers });
 }
 
-// sitemap ديناميكي: الصفحة الرئيسية + أعلى 100 فيلم + أعلى 100 مسلسل
 // صفحة Top 250 (أفلام أو مسلسلات)
 async function topPage(env: Env, url: URL, kind: 'movie' | 'tv'): Promise<Response> {
   type Row = {
@@ -216,18 +213,55 @@ ${items}
 async function sitemap(env: Env, url: URL): Promise<Response> {
   type List = { results?: { id: number }[] };
   const origin = CANONICAL_ORIGIN || url.origin;
-@@ -118,7 +221,7 @@
+  const pages = Array.from({ length: 5 }, (_, i) => String(i + 1));
+  const [movies, shows] = await Promise.all([
+    Promise.all(pages.map((p) => tmdb<List>(env, 'movie/top_rated', { page: p }))),
     Promise.all(pages.map((p) => tmdb<List>(env, 'tv/top_rated', { page: p }))),
   ]);
 
-  const urls = [`${origin}/`];
   const urls = [`${origin}/`, `${origin}/top-movies`, `${origin}/top-tv`];
   movies.forEach((l) => l?.results?.forEach((m) => urls.push(`${origin}/movie/${m.id}`)));
   shows.forEach((l) => l?.results?.forEach((m) => urls.push(`${origin}/tv/${m.id}`)));
 
-@@ -169,14 +272,16 @@
+  const body = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.map((u) => `  <url><loc>${esc(u)}</loc></url>`).join('\n')}
+</urlset>`;
+
+  return new Response(body, {
+    headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=86400' },
+  });
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+
+    // 1. طلبات الأفلام (API)
+    if (url.pathname.startsWith('/api/tmdb/')) {
+      const target = new URL('https://api.themoviedb.org/3/' + url.pathname.slice('/api/tmdb/'.length));
+      url.searchParams.forEach((v, k) => target.searchParams.set(k, v));
+      const key = getKey(env);
+      const headers: Record<string, string> = {};
+      if (key.length > 40) headers.Authorization = `Bearer ${key}`;
+      else target.searchParams.set('api_key', key);
+      const res = await fetch(target.toString(), { headers, cf: { cacheTtl: 300, cacheEverything: true } });
+      return new Response(res.body, {
+        status: res.status,
+        headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=300' },
+      });
     }
 
+    // 2. طلبات الصور
+    if (url.pathname.startsWith('/img/')) {
+      const res = await fetch('https://image.tmdb.org/t/p/' + url.pathname.slice(5), { cf: { cacheTtl: 86400, cacheEverything: true } });
+      return new Response(res.body, {
+        status: res.status,
+        headers: { 'content-type': res.headers.get('content-type') || 'image/jpeg', 'cache-control': 'public, max-age=86400' },
+      });
+    }
+
+    // 3. عرض الموقع (الملفات) وحقن كود الـ CSP
     if (url.pathname === '/sitemap.xml') return sitemap(env, url);
     if (url.pathname === '/top-movies') return topPage(env, url, 'movie');
     if (url.pathname === '/top-tv') return topPage(env, url, 'tv');
@@ -238,7 +272,13 @@ async function sitemap(env: Env, url: URL): Promise<Response> {
       if (page) return page;
     }
 
-    if (env.ASSETS) return env.ASSETS.fetch(request);
+    if (env.ASSETS) {
+      const res = await env.ASSETS.fetch(request);
+      const newHeaders = new Headers(res.headers);
+      newHeaders.set('Content-Security-Policy', "script-src 'self' 'unsafe-eval' 'unsafe-inline' https:;");
+      return new Response(res.body, { status: res.status, headers: newHeaders });
+    }
+    
     return new Response('Not found', { status: 404 });
   },
 };
