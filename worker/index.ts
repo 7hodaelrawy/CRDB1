@@ -25,8 +25,8 @@ interface TmdbItem {
 }
 
 // ===== إعدادات =====
-const SITE_NAME = 'Narvelo';
-// لما تشتري الدومين حط هنا مثلاً 'https://narvelo.com' (من غير / في الآخر). فاضي = نفس الدومين اللي الزائر فيه.
+const SITE_NAME = 'CRDb';
+// لما تشتري الدومين حط هنا مثلاً 'https://example.com' (من غير / في الآخر). فاضي = نفس الدومين اللي الزائر فيه.
 const CANONICAL_ORIGIN = '';
 // شكل روابط صفحات الأفلام والمسلسلات في موقعك
 const TITLE_ROUTE = /^\/(movie|tv)\/(\d+)(?:[-/].*)?$/;
