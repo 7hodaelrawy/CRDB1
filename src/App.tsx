@@ -1,13 +1,13 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, Fragment, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Link, Route, Switch, useLocation, useParams, useRoute } from 'wouter';
 import { ArrowRight, Bookmark, BookmarkCheck, BookmarkPlus, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, CircleAlert, Clapperboard, Film, Languages, Moon, Play, Search, Star, Sun, Tv, X } from 'lucide-react';
 import {
-  useGetCinemaHome, useGetCinemaTrailer, useGetCinemaUpcoming, useDiscoverCinemaTitles, useSearchCinema, useGetCinemaGenres, useGetCinemaTitle,
+  useGetCinemaHome, useGetCinemaTrailer, useGetCinemaUpcoming, useGetCinemaEpisodeRatings, useDiscoverCinemaTitles, useSearchCinema, useGetCinemaGenres, useGetCinemaTitle,
   useGetCinemaPerson, useGetCinemaSeason, getDiscoverCinemaTitlesQueryKey, getSearchCinemaQueryKey,
   getGetCinemaGenresQueryKey, getGetCinemaTitleQueryKey, getGetCinemaPersonQueryKey, getGetCinemaSeasonQueryKey,
 } from '@workspace/api-client-react';
-import type { MediaItem, MediaDetails, PersonDetails } from '@workspace/api-client-react';
+import type { MediaItem, MediaDetails, PersonDetails, EpisodeRating } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -74,11 +74,15 @@ const downloadIcs = (item: Partial<MediaItem> | Record<string, unknown>) => {
   a.remove();
   URL.revokeObjectURL(url);
 };
+const heat = (r: number) => {
+  const tt = Math.max(0, Math.min(1, (r - 5) / 4.5));
+  return `hsl(${Math.round(tt * 125)} 62% 42%)`;
+};
 
 type Lang = 'en' | 'ar';
 const copy = {
-  en: { home: 'Discover', movies: 'Movies', tv: 'Series', search: 'Search', tagline: 'Find your next story.', heroEyebrow: 'Your next watch starts here', explore: 'Explore title', trending: 'The conversation', trendingSub: 'Stories people are watching right now', moviesTitle: 'Movies worth your time', tvTitle: 'Series to get into', people: 'Faces behind the stories', browse: 'Browse', films: 'Movies', shows: 'Series', topRated: 'Top rated', newest: 'Recently released', popular: 'Most popular', sort: 'Sort by', genre: 'All genres', year: 'Any year', rating: 'Any rating', country: 'Country code', results: 'titles', noResults: 'No titles found', noResultsSub: 'Try changing a filter or exploring another genre.', retry: 'Try again', searchTitle: 'Search the whole story', searchSub: 'Titles, series, and the people who bring them to life.', searchPlaceholder: 'Try a title, actor, or director…', all: 'All', titles: 'Titles', cast: 'People', overview: 'Story', castTitle: 'Cast', crew: 'Key crew', details: 'At a glance', release: 'Release date', runtime: 'Runtime', status: 'Status', language: 'Original language', images: 'Stills & artwork', trailer: 'Watch the trailer', recommendations: 'You may also like', seasons: 'Seasons', season: 'Season', episodes: 'Episodes', biography: 'Biography', filmography: 'Known for', born: 'Born', birthplace: 'Place of birth', knownFor: 'Known for', loading: 'Finding the details…', failed: 'We couldn’t load this page.', back: 'Go back', emptyBio: 'No biography is available yet.', browseMore: 'Keep exploring', page: 'Page', previous: 'Previous', next: 'Next', noImage: 'No artwork available', castRole: 'as', watchProviders: 'Where to watch', providersEmpty: 'Provider details are not available.', languageLabel: 'العربية', verified: 'Reliable details. Zero fuss.', allTime: 'A better way to find what to watch.', watchlist: 'Watchlist', watchlistSub: 'Titles you saved to watch later. Saved on this device.', watchlistEmpty: 'Your watchlist is empty', watchlistEmptySub: 'Tap the bookmark on any title to save it here.', addWatchlist: 'Add to watchlist', inWatchlist: 'In your watchlist', wtwStream: 'Stream', wtwFree: 'Free', wtwRent: 'Rent', wtwBuy: 'Buy', wtwNoCountry: 'No listings for your country yet. Showing', wtwCredit: 'Streaming availability by JustWatch', wtwAll: 'See all options', calendar: 'Calendar', calendarTitle: 'Coming to theaters', calendarSub: 'Upcoming movies by release date, with a countdown for each one.', calendarNote: 'Dates follow TMDB and can differ by country.', addToCalendar: 'Add to your calendar' },
-  ar: { home: 'اكتشف', movies: 'أفلام', tv: 'مسلسلات', search: 'بحث', tagline: 'حكايتك القادمة تبدأ هنا.', heroEyebrow: 'مشاهدتك القادمة تبدأ هنا', explore: 'اكتشف العمل', trending: 'حديث الجمهور', trendingSub: 'حكايات يشاهدها الناس الآن', moviesTitle: 'أفلام تستحق وقتك', tvTitle: 'مسلسلات تستحق المتابعة', people: 'وجوه وراء الحكايات', browse: 'تصفّح', films: 'أفلام', shows: 'مسلسلات', topRated: 'الأعلى تقييماً', newest: 'الأحدث', popular: 'الأكثر رواجاً', sort: 'ترتيب حسب', genre: 'كل التصنيفات', year: 'كل السنوات', rating: 'أي تقييم', country: 'رمز الدولة', results: 'أعمال', noResults: 'لم نعثر على أعمال', noResultsSub: 'جرّب تغيير الفلاتر أو استكشاف تصنيف آخر.', retry: 'حاول مجدداً', searchTitle: 'ابحث عن الحكاية كاملة', searchSub: 'أفلام ومسلسلات والأشخاص الذين يمنحونها الحياة.', searchPlaceholder: 'ابحث عن عمل أو ممثل أو مخرج…', all: 'الكل', titles: 'الأعمال', cast: 'الأشخاص', overview: 'القصة', castTitle: 'طاقم التمثيل', crew: 'فريق العمل', details: 'التفاصيل', release: 'تاريخ الإصدار', runtime: 'المدة', status: 'الحالة', language: 'اللغة الأصلية', images: 'صور ومشاهد', trailer: 'شاهد الإعلان', recommendations: 'قد يعجبك أيضاً', seasons: 'المواسم', season: 'الموسم', episodes: 'الحلقات', biography: 'نبذة', filmography: 'أعمال بارزة', born: 'تاريخ الميلاد', birthplace: 'مكان الميلاد', knownFor: 'معروف بـ', loading: 'جارٍ العثور على التفاصيل…', failed: 'تعذّر تحميل هذه الصفحة.', back: 'العودة', emptyBio: 'لا تتوفر نبذة بعد.', browseMore: 'تابع الاستكشاف', page: 'صفحة', previous: 'السابق', next: 'التالي', noImage: 'لا تتوفر صورة', castRole: 'بدور', watchProviders: 'أماكن المشاهدة', providersEmpty: 'تفاصيل المشاهدة غير متاحة.', languageLabel: 'English', verified: 'معلومات موثوقة. بلا تعقيد.', allTime: 'طريقة أسهل لاختيار ما تشاهده.', watchlist: 'قائمتي', watchlistSub: 'أعمال حفظتها لتشاهدها لاحقاً، وتُحفظ على هذا الجهاز.', watchlistEmpty: 'قائمتك فارغة', watchlistEmptySub: 'اضغط على علامة الحفظ في أي عمل ليظهر هنا.', addWatchlist: 'أضف إلى قائمتي', inWatchlist: 'في قائمتك', wtwStream: 'اشتراك', wtwFree: 'مجاناً', wtwRent: 'إيجار', wtwBuy: 'شراء', wtwNoCountry: 'لا توجد منصات لبلدك حتى الآن. المعروض لـ', wtwCredit: 'بيانات المشاهدة من JustWatch', wtwAll: 'كل الخيارات', calendar: 'التقويم', calendarTitle: 'قريباً في السينما', calendarSub: 'الأفلام القادمة حسب تاريخ العرض مع عدّاد تنازلي لكل فيلم.', calendarNote: 'التواريخ حسب TMDB وقد تختلف من بلد لآخر.', addToCalendar: 'أضف إلى تقويمك' }
+  en: { home: 'Discover', movies: 'Movies', tv: 'Series', search: 'Search', tagline: 'Find your next story.', heroEyebrow: 'Your next watch starts here', explore: 'Explore title', trending: 'The conversation', trendingSub: 'Stories people are watching right now', moviesTitle: 'Movies worth your time', tvTitle: 'Series to get into', people: 'Faces behind the stories', browse: 'Browse', films: 'Movies', shows: 'Series', topRated: 'Top rated', newest: 'Recently released', popular: 'Most popular', sort: 'Sort by', genre: 'All genres', year: 'Any year', rating: 'Any rating', country: 'Country code', results: 'titles', noResults: 'No titles found', noResultsSub: 'Try changing a filter or exploring another genre.', retry: 'Try again', searchTitle: 'Search the whole story', searchSub: 'Titles, series, and the people who bring them to life.', searchPlaceholder: 'Try a title, actor, or director…', all: 'All', titles: 'Titles', cast: 'People', overview: 'Story', castTitle: 'Cast', crew: 'Key crew', details: 'At a glance', release: 'Release date', runtime: 'Runtime', status: 'Status', language: 'Original language', images: 'Stills & artwork', trailer: 'Watch the trailer', recommendations: 'You may also like', seasons: 'Seasons', season: 'Season', episodes: 'Episodes', biography: 'Biography', filmography: 'Known for', born: 'Born', birthplace: 'Place of birth', knownFor: 'Known for', loading: 'Finding the details…', failed: 'We couldn’t load this page.', back: 'Go back', emptyBio: 'No biography is available yet.', browseMore: 'Keep exploring', page: 'Page', previous: 'Previous', next: 'Next', noImage: 'No artwork available', castRole: 'as', watchProviders: 'Where to watch', providersEmpty: 'Provider details are not available.', languageLabel: 'العربية', verified: 'Reliable details. Zero fuss.', allTime: 'A better way to find what to watch.', watchlist: 'Watchlist', watchlistSub: 'Titles you saved to watch later. Saved on this device.', watchlistEmpty: 'Your watchlist is empty', watchlistEmptySub: 'Tap the bookmark on any title to save it here.', addWatchlist: 'Add to watchlist', inWatchlist: 'In your watchlist', wtwStream: 'Stream', wtwFree: 'Free', wtwRent: 'Rent', wtwBuy: 'Buy', wtwNoCountry: 'No listings for your country yet. Showing', wtwCredit: 'Streaming availability by JustWatch', wtwAll: 'See all options', calendar: 'Calendar', calendarTitle: 'Coming to theaters', calendarSub: 'Upcoming movies by release date, with a countdown for each one.', calendarNote: 'Dates follow TMDB and can differ by country.', addToCalendar: 'Add to your calendar', episodeRatings: 'Episode ratings', epRatingsSub: 'Every episode rated by viewers. Hover over a cell for details.', epBest: 'Best episode', epWorst: 'Lowest rated', epAvg: 'Avg', epSeasonShort: 'S', epNote: 'Ratings come from TMDB viewers; episodes with few votes can be noisy.' },
+  ar: { home: 'اكتشف', movies: 'أفلام', tv: 'مسلسلات', search: 'بحث', tagline: 'حكايتك القادمة تبدأ هنا.', heroEyebrow: 'مشاهدتك القادمة تبدأ هنا', explore: 'اكتشف العمل', trending: 'حديث الجمهور', trendingSub: 'حكايات يشاهدها الناس الآن', moviesTitle: 'أفلام تستحق وقتك', tvTitle: 'مسلسلات تستحق المتابعة', people: 'وجوه وراء الحكايات', browse: 'تصفّح', films: 'أفلام', shows: 'مسلسلات', topRated: 'الأعلى تقييماً', newest: 'الأحدث', popular: 'الأكثر رواجاً', sort: 'ترتيب حسب', genre: 'كل التصنيفات', year: 'كل السنوات', rating: 'أي تقييم', country: 'رمز الدولة', results: 'أعمال', noResults: 'لم نعثر على أعمال', noResultsSub: 'جرّب تغيير الفلاتر أو استكشاف تصنيف آخر.', retry: 'حاول مجدداً', searchTitle: 'ابحث عن الحكاية كاملة', searchSub: 'أفلام ومسلسلات والأشخاص الذين يمنحونها الحياة.', searchPlaceholder: 'ابحث عن عمل أو ممثل أو مخرج…', all: 'الكل', titles: 'الأعمال', cast: 'الأشخاص', overview: 'القصة', castTitle: 'طاقم التمثيل', crew: 'فريق العمل', details: 'التفاصيل', release: 'تاريخ الإصدار', runtime: 'المدة', status: 'الحالة', language: 'اللغة الأصلية', images: 'صور ومشاهد', trailer: 'شاهد الإعلان', recommendations: 'قد يعجبك أيضاً', seasons: 'المواسم', season: 'الموسم', episodes: 'الحلقات', biography: 'نبذة', filmography: 'أعمال بارزة', born: 'تاريخ الميلاد', birthplace: 'مكان الميلاد', knownFor: 'معروف بـ', loading: 'جارٍ العثور على التفاصيل…', failed: 'تعذّر تحميل هذه الصفحة.', back: 'العودة', emptyBio: 'لا تتوفر نبذة بعد.', browseMore: 'تابع الاستكشاف', page: 'صفحة', previous: 'السابق', next: 'التالي', noImage: 'لا تتوفر صورة', castRole: 'بدور', watchProviders: 'أماكن المشاهدة', providersEmpty: 'تفاصيل المشاهدة غير متاحة.', languageLabel: 'English', verified: 'معلومات موثوقة. بلا تعقيد.', allTime: 'طريقة أسهل لاختيار ما تشاهده.', watchlist: 'قائمتي', watchlistSub: 'أعمال حفظتها لتشاهدها لاحقاً، وتُحفظ على هذا الجهاز.', watchlistEmpty: 'قائمتك فارغة', watchlistEmptySub: 'اضغط على علامة الحفظ في أي عمل ليظهر هنا.', addWatchlist: 'أضف إلى قائمتي', inWatchlist: 'في قائمتك', wtwStream: 'اشتراك', wtwFree: 'مجاناً', wtwRent: 'إيجار', wtwBuy: 'شراء', wtwNoCountry: 'لا توجد منصات لبلدك حتى الآن. المعروض لـ', wtwCredit: 'بيانات المشاهدة من JustWatch', wtwAll: 'كل الخيارات', calendar: 'التقويم', calendarTitle: 'قريباً في السينما', calendarSub: 'الأفلام القادمة حسب تاريخ العرض مع عدّاد تنازلي لكل فيلم.', calendarNote: 'التواريخ حسب TMDB وقد تختلف من بلد لآخر.', addToCalendar: 'أضف إلى تقويمك', episodeRatings: 'تقييمات الحلقات', epRatingsSub: 'كل حلقة بتقييم الجمهور. مرّر على أي خلية للتفاصيل.', epBest: 'أفضل حلقة', epWorst: 'أقل حلقة تقييماً', epAvg: 'المتوسط', epSeasonShort: 'م', epNote: 'التقييمات من جمهور TMDB، والحلقات قليلة الأصوات قد تكون غير دقيقة.' }
 };
 
 type Preferences = { lang: Lang; setLang: (lang: Lang) => void; dark: boolean; setDark: (dark: boolean) => void; t: typeof copy.en };
@@ -309,6 +313,52 @@ function SearchPage() {
   </PageFrame>;
 }
 
+function EpisodeHeatmap({ id, seasonNumbers }: { id: number; seasonNumbers: number[] }) {
+  const { lang, t } = usePreferences();
+  const q = useGetCinemaEpisodeRatings({ id, seasonNumbers, language: lang });
+  if (q.isLoading) return <section className="section"><h2 className="section-title">{t.episodeRatings}</h2><div className="skeleton" style={{ height: 220, marginTop: 17 }} /></section>;
+  const eps: EpisodeRating[] = q.data || [];
+  const rated = eps.filter(e => e.votes > 0 && e.rating > 0);
+  if (rated.length < 3) return null;
+  const pool = rated.filter(e => e.votes >= 3);
+  const candidates = pool.length >= 2 ? pool : rated;
+  const best = candidates.reduce((a, b) => (b.rating > a.rating || (b.rating === a.rating && b.votes > a.votes) ? b : a));
+  const worst = candidates.reduce((a, b) => (b.rating < a.rating || (b.rating === a.rating && b.votes > a.votes) ? b : a));
+  const map = new Map(eps.map(e => [`${e.season}-${e.episode}`, e]));
+  const maxEp = Math.max(...eps.map(e => e.episode));
+  const avg = (s: number) => {
+    const list = rated.filter(e => e.season === s);
+    return list.length ? list.reduce((sum, e) => sum + e.rating, 0) / list.length : 0;
+  };
+  const tip = (e: EpisodeRating) => `${t.epSeasonShort}${e.season} · E${e.episode} — ${e.name} · ${e.rating.toFixed(1)} (${e.votes.toLocaleString()})`;
+  return <section className="section">
+    <div className="section-head"><div><h2 className="section-title">{t.episodeRatings}</h2><p className="section-kicker">{t.epRatingsSub}</p></div></div>
+    <div className="hm-stats">
+      <div className="hm-stat"><span>{t.epBest}</span><strong style={{ color: heat(best.rating) }}>{best.rating.toFixed(1)}</strong><em>{t.epSeasonShort}{best.season} · E{best.episode} — {best.name}</em></div>
+      <div className="hm-stat"><span>{t.epWorst}</span><strong style={{ color: heat(worst.rating) }}>{worst.rating.toFixed(1)}</strong><em>{t.epSeasonShort}{worst.season} · E{worst.episode} — {worst.name}</em></div>
+    </div>
+    <div className="hm-scroll">
+      <div className="hm-grid" style={{ gridTemplateColumns: `34px repeat(${seasonNumbers.length}, 46px)` }}>
+        <div className="hm-corner" />
+        {seasonNumbers.map(s => <div className="hm-head" key={`h${s}`}>{t.epSeasonShort}{s}</div>)}
+        {Array.from({ length: maxEp }, (_, i) => i + 1).map(ep => <Fragment key={ep}>
+          <div className="hm-side">{ep}</div>
+          {seasonNumbers.map(s => {
+            const e = map.get(`${s}-${ep}`);
+            return e && e.votes > 0 && e.rating > 0
+              ? <div key={`${s}-${ep}`} className="hm-cell" style={{ background: heat(e.rating) }} title={tip(e)}>{e.rating.toFixed(1)}</div>
+              : <div key={`${s}-${ep}`} className={`hm-cell ${e ? 'none' : 'void'}`} title={e ? tip(e) : undefined}>{e ? '—' : ''}</div>;
+          })}
+        </Fragment>)}
+        <div className="hm-side avg">{t.epAvg}</div>
+        {seasonNumbers.map(s => { const a = avg(s); return <div key={`a${s}`} className={`hm-cell avg ${a ? '' : 'none'}`} style={a ? { background: heat(a) } : undefined}>{a ? a.toFixed(1) : '—'}</div>; })}
+      </div>
+    </div>
+    <div className="hm-legend"><span>5</span><i /><span>9+</span></div>
+    <p className="wtw-credit">{t.epNote}</p>
+  </section>;
+}
+
 function DetailPage({ kind }: { kind: 'movie' | 'tv' }) {
   const p = useParams<{ id: string }>(); const id = Number(p.id); const { lang, t } = usePreferences();
   const wl = useWatchlist();
@@ -319,6 +369,7 @@ function DetailPage({ kind }: { kind: 'movie' | 'tv' }) {
   const [trailerOpen, setTrailerOpen] = useState(false);
   const title = q.data as MediaDetails | undefined;
   const seasons = (title?.seasons as Array<Record<string, unknown>> | undefined) || [];
+  const seasonNumbers = seasons.map(s => Number(s.season_number)).filter(n => Number.isFinite(n) && n >= 1);
   useEffect(() => { setSeasonNo(null); setTrailerOpen(false); }, [id]);
   const seasonParams = { id, seasonNumber: seasonNo ?? 0, language: lang };
   const season = useGetCinemaSeason(seasonParams, { query: { enabled: kind === 'tv' && seasonNo !== null, queryKey: getGetCinemaSeasonQueryKey(seasonParams) } });
@@ -369,6 +420,7 @@ function DetailPage({ kind }: { kind: 'movie' | 'tv' }) {
       {(stills.length + posters.length) > 0 && <section className="section"><h2 className="section-title">{t.images}</h2><div className="image-strip" style={{ marginTop: 17 }}>{[...stills, ...posters].map((image, i) => <img key={i} src={img(image.file_path as string, 'w500')} alt="" loading="lazy" />)}</div></section>}
       {kind === 'tv' && seasons.length > 0 && <section className="section"><div className="section-head"><div><h2 className="section-title">{t.seasons}</h2></div><select className="field" aria-label={t.season} value={seasonNo ?? ''} onChange={e => setSeasonNo(e.target.value === '' ? null : Number(e.target.value))} data-testid="select-season"><option value="">{t.seasons}</option>{seasons.map(s => <option key={String(s.id)} value={Number(s.season_number)}>{String(s.name || `${t.season} ${s.season_number}`)}</option>)}</select></div>
         {seasonNo !== null && (season.isLoading ? <div className="skeleton" style={{ height: 160 }} /> : season.isError ? <StateBlock error title={t.failed} text={t.noResultsSub} action={t.retry} onAction={() => season.refetch()} /> : <div className="episode-list">{((season.data?.episodes || []) as Array<Record<string, unknown>>).map((episode, i) => <article className="episode" key={String(episode.id || i)}>{img(episode.still_path as string, 'w300') ? <img src={img(episode.still_path as string, 'w300')} alt="" /> : <div className="skeleton" />}<div><h3>{String(episode.episode_number || i + 1)}. {String(episode.name || '')}</h3><p>{String(episode.air_date || '')} · {String(episode.runtime || '')} min</p><p>{String(episode.overview || '')}</p></div></article>)}</div>)}</section>}
+      {kind === 'tv' && seasonNumbers.length > 0 && <EpisodeHeatmap id={id} seasonNumbers={seasonNumbers} />}
       {providerCountries.length > 0 && <section className="section">
         <div className="wtw-head"><h2 className="section-title">{t.watchProviders}</h2>
           <select className="field" aria-label="Country" value={shownCountry} onChange={e => visitor.choose(e.target.value)}>{providerCountries.map(c => <option key={c} value={c}>{countryName(c, lang)}</option>)}</select></div>
