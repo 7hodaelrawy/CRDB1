@@ -23,6 +23,13 @@
       "/search"
     ]
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "crdb",
+      "database_id": "8782c73c-7d24-4a4b-b582-5f7f91c055e8"
+    }
+  ],
   "vars": {
     "TMDB_KEY": "5e11ae6a3daf0069b9c7c9f603bb2355"
   }
