@@ -1,248 +1,262 @@
-interface Env {
-  TMDB_KEY?: string;
-  TMDB_API_KEY?: string;
-  ASSETS?: { fetch: (request: Request) => Promise<Response> };
+// @ts-nocheck
+const getKey = (env) => (env.TMDB_KEY || env.TMDB_API_KEY || '').trim();
+
+async function tmdbGet(env, path, params = {}) {
+  const target = new URL('https://api.themoviedb.org/3' + path);
+  Object.entries(params).forEach(([k, v]) => target.searchParams.set(k, String(v)));
+  const key = getKey(env);
+  const headers = {};
+  if (key.length > 40) headers.Authorization = `Bearer ${key}`;
+  else target.searchParams.set('api_key', key);
+  const res = await fetch(target.toString(), { headers, cf: { cacheTtl: 3600, cacheEverything: true } });
+  if (!res.ok) {
+    const err = new Error(`TMDB ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
 }
 
-interface TmdbItem {
-  title?: string;
-  name?: string;
-  overview?: string;
-  poster_path?: string | null;
-  backdrop_path?: string | null;
-  release_date?: string;
-  first_air_date?: string;
-}
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const clip = (s, n = 155) => {
+  const t = String(s || '').replace(/\s+/g, ' ').trim();
+  return t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t;
+};
+const pickLang = (request) => (/^\s*ar/i.test(request.headers.get('accept-language') || '') ? 'ar' : 'en');
+const cleanPath = (p) => (p.length > 1 ? p.replace(/\/+$/, '') || '/' : p);
 
-// ===== إعدادات =====
-const SITE_NAME = 'Narvelo';
-const CANONICAL_ORIGIN = '';
-const TITLE_ROUTE = /^\/(movie|tv)\/(\d+)(?:[-/].*)?$/;
-
-const getKey = (env: Env) => (env.TMDB_KEY || env.TMDB_API_KEY || '').trim();
-
-const esc = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-const clip = (s: string, n = 160) => {
-  const t = s.replace(/\s+/g, ' ').trim();
-  return t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t;
+const PAGES = {
+  '/': {
+    en: ['CRDb — Movies & series, ratings, trailers and where to watch', 'Discover new releases, upcoming movies and top-rated series, with ratings, trailers, cast and where to watch in your country.'],
+    ar: ['CRDb — أفلام ومسلسلات وتقييمات وأماكن المشاهدة', 'اكتشف أحدث الأفلام والمسلسلات والأعمال القادمة، مع التقييمات والإعلانات وطاقم التمثيل وأماكن المشاهدة في بلدك.'],
+  },
+  '/movies': {
+    en: ['Movies worth your time — CRDb', 'Browse movies by genre, year, rating and country.'],
+    ar: ['أفلام تستحق وقتك — CRDb', 'تصفّح الأفلام حسب التصنيف والسنة والتقييم والبلد.'],
+  },
+  '/tv': {
+    en: ['Series to get into — CRDb', 'Browse TV series by genre, year, rating and country.'],
+    ar: ['مسلسلات تستحق المتابعة — CRDb', 'تصفّح المسلسلات حسب التصنيف والسنة والتقييم والبلد.'],
+  },
+  '/top': {
+    en: ['Top 250 movies and series — CRDb', 'The 250 best-rated movies and series, ranked by a weighted rating from viewer votes.'],
+    ar: ['أفضل 250 فيلماً ومسلسلاً — CRDb', 'أفضل 250 فيلماً ومسلسلاً بتقييم الجمهور، مرتبة بتقييم موزون.'],
+  },
+  '/calendar': {
+    en: ['Upcoming movies calendar — CRDb', 'Movies coming to theaters by release date, with a countdown for each one.'],
+    ar: ['تقويم الأفلام القادمة — CRDb', 'الأفلام القادمة إلى السينما حسب تاريخ العرض مع عدّاد تنازلي لكل فيلم.'],
+  },
+  '/watchlist': {
+    en: ['Your watchlist — CRDb', 'Titles you saved to watch later.'],
+    ar: ['قائمتي — CRDb', 'أعمال حفظتها لتشاهدها لاحقاً.'],
+    noindex: true,
+  },
+  '/search': {
+    en: ['Search — CRDb', 'Search movies, series and people.'],
+    ar: ['بحث — CRDb', 'ابحث عن أفلام ومسلسلات وأشخاص.'],
+    noindex: true,
+  },
 };
 
-async function tmdb<T>(env: Env, path: string, params: Record<string, string> = {}): Promise<T | null> {
-  try {
-    const target = new URL('https://api.themoviedb.org/3/' + path);
-    for (const [k, v] of Object.entries(params)) target.searchParams.set(k, v);
-    const key = getKey(env);
-    const headers: Record<string, string> = {};
-    if (key.length > 40) headers.Authorization = `Bearer ${key}`;
-    else target.searchParams.set('api_key', key);
-    const res = await fetch(target.toString(), { headers, cf: { cacheTtl: 3600, cacheEverything: true } });
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
-  }
-}
-
-// صفحة فيلم/مسلسل: نفس الـ index.html بس بعنوان ووصف وصورة مشاركة خاصة بالعنوان
-async function titlePage(env: Env, url: URL, kind: string, id: string): Promise<Response | null> {
-  if (!env.ASSETS) return null;
-  const shell = await env.ASSETS.fetch(new Request(new URL('/', url).toString()));
-  if (!shell.ok) return shell;
-
-  const data = await tmdb<TmdbItem>(env, `${kind}/${id}`, { language: 'ar' });
-  if (!data) return shell;
-  if (!data.overview) {
-    const en = await tmdb<TmdbItem>(env, `${kind}/${id}`, { language: 'en-US' });
-    if (en?.overview) data.overview = en.overview;
-  }
-
-  const name = data.title || data.name || '';
-  if (!name) return shell;
-  const year = (data.release_date || data.first_air_date || '').slice(0, 4);
-  const title = `${name}${year ? ` (${year})` : ''} — ${SITE_NAME}`;
-  const desc = clip(data.overview || `${name} — تقييمات وتفاصيل على ${SITE_NAME}`);
-  const origin = CANONICAL_ORIGIN || url.origin;
-  const canonical = `${origin}/${kind}/${id}`;
-  const imgPath = data.backdrop_path || data.poster_path;
-  const image = imgPath ? `${origin}/img/w780${imgPath}` : '';
-
-  const ld = JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': kind === 'movie' ? 'Movie' : 'TVSeries',
-    name,
-    description: desc,
-    url: canonical,
-    ...(image ? { image } : {}),
-    ...(year ? { datePublished: year } : {}),
-  }).replace(/</g, '\\u003c');
-
+function headHtml(m, origin, path, lang) {
+  const url = origin + path;
   const tags = [
-    `<meta name="description" content="${esc(desc)}">`,
-    `<link rel="canonical" href="${esc(canonical)}">`,
-    `<meta property="og:type" content="${kind === 'movie' ? 'video.movie' : 'video.tv_show'}">`,
-    `<meta property="og:site_name" content="${esc(SITE_NAME)}">`,
-    `<meta property="og:title" content="${esc(title)}">`,
-    `<meta property="og:description" content="${esc(desc)}">`,
-    `<meta property="og:url" content="${esc(canonical)}">`,
-    image ? `<meta property="og:image" content="${esc(image)}">` : '',
-    `<meta name="twitter:card" content="${image ? 'summary_large_image' : 'summary'}">`,
-    `<script type="application/ld+json">${ld}</script>`,
-  ].join('\n');
-
-  const out = new HTMLRewriter()
-    .on('title', { element(e) { e.setInnerContent(title); } })
-    .on('meta[name="description"], link[rel="canonical"], meta[property^="og:"], meta[name="twitter:card"]', {
-      element(e) { e.remove(); },
-    })
-    .on('head', { element(e) { e.append(tags, { html: true }); } })
-    .transform(shell);
-
-  const headers = new Headers(out.headers);
-  headers.delete('etag');
-  headers.set('content-type', 'text/html; charset=utf-8');
-  headers.set('cache-control', 'public, max-age=600');
-  return new Response(out.body, { status: 200, headers });
+    `<meta name="description" content="${esc(m.description)}">`,
+    `<link rel="canonical" href="${esc(url)}">`,
+    m.noindex
+      ? '<meta name="robots" content="noindex,follow">'
+      : '<meta name="robots" content="index,follow,max-image-preview:large">',
+    '<meta property="og:site_name" content="CRDb">',
+    `<meta property="og:type" content="${esc(m.ogType || 'website')}">`,
+    `<meta property="og:title" content="${esc(m.title)}">`,
+    `<meta property="og:description" content="${esc(m.description)}">`,
+    `<meta property="og:url" content="${esc(url)}">`,
+    `<meta property="og:locale" content="${lang === 'ar' ? 'ar_AR' : 'en_US'}">`,
+    m.image ? `<meta property="og:image" content="${esc(m.image)}">` : '',
+    `<meta name="twitter:card" content="${m.image ? 'summary_large_image' : 'summary'}">`,
+    `<meta name="twitter:title" content="${esc(m.title)}">`,
+    `<meta name="twitter:description" content="${esc(m.description)}">`,
+    m.image ? `<meta name="twitter:image" content="${esc(m.image)}">` : '',
+  ];
+  if (m.jsonld) {
+    tags.push(`<script type="application/ld+json">${JSON.stringify(m.jsonld).replace(/</g, '\\u003c')}</script>`);
+  }
+  return tags.filter(Boolean).join('\n');
 }
 
-// صفحة Top 250 (أفلام أو مسلسلات)
-async function topPage(env: Env, url: URL, kind: 'movie' | 'tv'): Promise<Response> {
-  type Row = {
-    id: number;
-    title?: string;
-    name?: string;
-    vote_average: number;
-    release_date?: string;
-    first_air_date?: string;
-    poster_path?: string | null;
-  };
-  type List = { results?: Row[] };
-
-  const pages = Array.from({ length: 13 }, (_, i) => String(i + 1));
-  const lists = await Promise.all(
-    pages.map((p) => tmdb<List>(env, `${kind}/top_rated`, { page: p, language: 'ar' })),
-  );
-  const rows = lists.flatMap((l) => l?.results ?? []).slice(0, 250);
-  if (!rows.length) return new Response('تعذر تحميل القائمة حالياً، حاول بعد قليل.', { status: 502 });
-
-  const heading = kind === 'movie' ? 'أفضل 250 فيلم' : 'أفضل 250 مسلسل';
-  const title = `${heading} — ${SITE_NAME}`;
-  const desc =
-    kind === 'movie'
-      ? `قائمة أعلى 250 فيلم تقييماً حسب تصويت الجمهور على ${SITE_NAME}.`
-      : `قائمة أعلى 250 مسلسل تقييماً حسب تصويت الجمهور على ${SITE_NAME}.`;
-  const path = kind === 'movie' ? '/top-movies' : '/top-tv';
-  const origin = CANONICAL_ORIGIN || url.origin;
-  const canonical = origin + path;
-
-  const ld = JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'ItemList',
-    name: heading,
-    itemListElement: rows.map((r, i) => ({
-      '@type': 'ListItem',
-      position: i + 1,
-      url: `${origin}/${kind}/${r.id}`,
-    })),
-  }).replace(/</g, '\\u003c');
-
-  const items = rows
-    .map((r, i) => {
-      const name = r.title || r.name || '';
-      const year = (r.release_date || r.first_air_date || '').slice(0, 4);
-      const img = r.poster_path
-        ? `<img src="/img/w92${esc(r.poster_path)}" alt="${esc(name)}" width="46" height="69" loading="lazy">`
-        : '<span class="noimg"></span>';
-      return `<li><span class="rank">${i + 1}</span>${img}<a href="/${kind}/${r.id}">${esc(name)}</a><span class="year">${esc(year)}</span><span class="score">★ ${r.vote_average.toFixed(1)}</span></li>`;
+async function shell(request, env, m, lang, status = 200) {
+  const url = new URL(request.url);
+  const path = cleanPath(url.pathname);
+  const base = await env.ASSETS.fetch(new Request(new URL('/', url).toString()));
+  const head = headHtml(m, url.origin, path, lang);
+  const out = new HTMLRewriter()
+    .on('html', {
+      element(e) {
+        e.setAttribute('lang', lang);
+        e.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+      },
     })
-    .join('\n');
-
-  const html = `<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${esc(title)}</title>
-<meta name="description" content="${esc(desc)}">
-<link rel="canonical" href="${esc(canonical)}">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="${esc(SITE_NAME)}">
-<meta property="og:title" content="${esc(title)}">
-<meta property="og:description" content="${esc(desc)}">
-<meta property="og:url" content="${esc(canonical)}">
-<meta name="twitter:card" content="summary">
-<script type="application/ld+json">${ld}</script>
-<style>
-  body{margin:0;background:#0f1115;color:#eceff4;font-family:system-ui,-apple-system,'Segoe UI',Tahoma,sans-serif}
-  header,main{max-width:760px;margin:0 auto;padding:16px}
-  header{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
-  header a{color:#8ab4ff;text-decoration:none}
-  h1{font-size:1.5rem;margin:8px 16px 8px 0}
-  nav{display:flex;gap:12px}
-  ol{list-style:none;margin:0;padding:0}
-  li{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #232734}
-  .rank{width:2.2rem;text-align:center;color:#9aa3b2}
-  img,.noimg{width:46px;height:69px;border-radius:4px;background:#232734;flex:none;object-fit:cover}
-  li a{flex:1;color:#eceff4;text-decoration:none;font-weight:600}
-  li a:hover{color:#8ab4ff}
-  .year{color:#9aa3b2}
-  .score{color:#ffc94d;min-width:3.5rem;text-align:left}
-</style>
-</head>
-<body>
-<header>
-  <a href="/">${esc(SITE_NAME)}</a>
-  <nav><a href="/top-movies">أفضل الأفلام</a><a href="/top-tv">أفضل المسلسلات</a></nav>
-</header>
-<main>
-  <h1>${esc(heading)}</h1>
-  <ol>
-${items}
-  </ol>
-</main>
-</body>
-</html>`;
-
-  return new Response(html, {
-    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=3600' },
+    .on('title', { element(e) { e.setInnerContent(m.title); } })
+    .on('meta[name="description"]', { element(e) { e.remove(); } })
+    .on('meta[name="robots"]', { element(e) { e.remove(); } })
+    .on('meta[property^="og:"]', { element(e) { e.remove(); } })
+    .on('meta[name^="twitter:"]', { element(e) { e.remove(); } })
+    .on('link[rel="canonical"]', { element(e) { e.remove(); } })
+    .on('head', { element(e) { e.append(head, { html: true }); } })
+    .on('body', {
+      element(e) {
+        if (m.body) e.append(`<noscript>${m.body}</noscript>`, { html: true });
+      },
+    })
+    .transform(base);
+  return new Response(out.body, {
+    status,
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'public, max-age=300',
+      vary: 'Accept-Language',
+    },
   });
 }
 
-// sitemap ديناميكي: الصفحة الرئيسية + صفحات Top + أعلى 100 فيلم + أعلى 100 مسلسل
-async function sitemap(env: Env, url: URL): Promise<Response> {
-  type List = { results?: { id: number }[] };
-  const origin = CANONICAL_ORIGIN || url.origin;
-  const pages = Array.from({ length: 5 }, (_, i) => String(i + 1));
-  const [movies, shows] = await Promise.all([
-    Promise.all(pages.map((p) => tmdb<List>(env, 'movie/top_rated', { page: p }))),
-    Promise.all(pages.map((p) => tmdb<List>(env, 'tv/top_rated', { page: p }))),
-  ]);
+async function renderDetail(request, env, kind, id, lang) {
+  const url = new URL(request.url);
+  const path = cleanPath(url.pathname);
+  let d;
+  try {
+    d = await tmdbGet(env, `/${kind}/${id}`, { language: lang });
+  } catch (err) {
+    const notFound = err && err.status === 404;
+    const m = {
+      title: notFound ? 'Not found — CRDb' : PAGES['/'][lang][0],
+      description: PAGES['/'][lang][1],
+      noindex: true,
+    };
+    return shell(request, env, m, lang, notFound ? 404 : 200);
+  }
+  const name = d.title || d.name || d.original_title || d.original_name || 'Untitled';
+  const date = d.release_date || d.first_air_date || '';
+  const year = date.slice(0, 4);
+  const label = `${name}${year ? ` (${year})` : ''}`;
+  const genres = (d.genres || []).map((g) => g.name);
+  const description =
+    clip(d.overview) ||
+    (lang === 'ar'
+      ? `${label} — التقييمات وطاقم التمثيل والإعلان وأماكن المشاهدة على CRDb.`
+      : `${label} — ratings, cast, trailer and where to watch on CRDb.`);
+  const image = d.backdrop_path
+    ? `https://image.tmdb.org/t/p/w1280${d.backdrop_path}`
+    : d.poster_path
+      ? `https://image.tmdb.org/t/p/w500${d.poster_path}`
+      : '';
+  const jsonld = {
+    '@context': 'https://schema.org',
+    '@type': kind === 'movie' ? 'Movie' : 'TVSeries',
+    name,
+    url: url.origin + path,
+    description: d.overview || undefined,
+    image: d.poster_path ? `https://image.tmdb.org/t/p/w500${d.poster_path}` : undefined,
+    datePublished: date || undefined,
+    genre: genres.length ? genres : undefined,
+    numberOfSeasons: kind === 'tv' ? d.number_of_seasons || undefined : undefined,
+  };
+  const body =
+    `<h1>${esc(label)}</h1>` +
+    (d.poster_path ? `<img src="https://image.tmdb.org/t/p/w342${d.poster_path}" alt="${esc(name)}">` : '') +
+    `<p>${esc(d.overview || '')}</p>` +
+    (genres.length ? `<p>${esc(genres.join(' · '))}</p>` : '');
+  return shell(
+    request,
+    env,
+    { title: `${label} — CRDb`, description, image, ogType: kind === 'movie' ? 'video.movie' : 'video.tv_show', jsonld, body },
+    lang,
+  );
+}
 
-  const urls = [`${origin}/`, `${origin}/top-movies`, `${origin}/top-tv`];
-  movies.forEach((l) => l?.results?.forEach((m) => urls.push(`${origin}/movie/${m.id}`)));
-  shows.forEach((l) => l?.results?.forEach((m) => urls.push(`${origin}/tv/${m.id}`)));
+async function renderPerson(request, env, id, lang) {
+  const url = new URL(request.url);
+  const path = cleanPath(url.pathname);
+  let d;
+  try {
+    d = await tmdbGet(env, `/person/${id}`, { language: lang });
+  } catch (err) {
+    const notFound = err && err.status === 404;
+    const m = {
+      title: notFound ? 'Not found — CRDb' : PAGES['/'][lang][0],
+      description: PAGES['/'][lang][1],
+      noindex: true,
+    };
+    return shell(request, env, m, lang, notFound ? 404 : 200);
+  }
+  const name = d.name || 'Unknown';
+  const description =
+    clip(d.biography) ||
+    (lang === 'ar' ? `${name} — السيرة والأعمال على CRDb.` : `${name} — biography and filmography on CRDb.`);
+  const image = d.profile_path ? `https://image.tmdb.org/t/p/h632${d.profile_path}` : '';
+  const jsonld = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name,
+    url: url.origin + path,
+    description: d.biography ? clip(d.biography, 500) : undefined,
+    image: image || undefined,
+    birthDate: d.birthday || undefined,
+    birthPlace: d.place_of_birth || undefined,
+    jobTitle: d.known_for_department || undefined,
+  };
+  const body = `<h1>${esc(name)}</h1>${image ? `<img src="${esc(image)}" alt="${esc(name)}">` : ''}<p>${esc(clip(d.biography, 600))}</p>`;
+  return shell(request, env, { title: `${name} — CRDb`, description, image, ogType: 'profile', jsonld, body }, lang);
+}
 
-  const body = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map((u) => `  <url><loc>${esc(u)}</loc></url>`).join('\n')}
-</urlset>`;
-
-  return new Response(body, {
+async function sitemap(env, origin) {
+  const statics = ['/', '/movies', '/tv', '/top', '/calendar'];
+  const jobs = [];
+  for (const kind of ['movie', 'tv']) {
+    for (const list of ['top_rated', 'popular']) {
+      for (const page of [1, 2, 3, 4, 5]) {
+        jobs.push(
+          tmdbGet(env, `/${kind}/${list}`, { page })
+            .then((r) => (r.results || []).map((i) => `/${kind}/${i.id}`))
+            .catch(() => []),
+        );
+      }
+    }
+  }
+  const found = (await Promise.all(jobs)).flat();
+  const paths = Array.from(new Set([...statics, ...found]));
+  const xml =
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    paths.map((p) => `<url><loc>${esc(origin + p)}</loc></url>`).join('\n') +
+    `\n</urlset>`;
+  return new Response(xml, {
     headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=86400' },
   });
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request, env) {
     const url = new URL(request.url);
+    const path = cleanPath(url.pathname);
+    const isRead = request.method === 'GET' || request.method === 'HEAD';
 
-    // 1. طلبات الأفلام (API)
-    if (url.pathname.startsWith('/api/tmdb/')) {
-      const target = new URL('https://api.themoviedb.org/3/' + url.pathname.slice('/api/tmdb/'.length));
+    if (path === '/robots.txt') {
+      const txt = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /search\nDisallow: /watchlist\n\nSitemap: ${url.origin}/sitemap.xml\n`;
+      return new Response(txt, { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
+    }
+
+    if (path === '/sitemap.xml') return sitemap(env, url.origin);
+
+    // بلد الزائر (Cloudflare بيحدده تلقائياً)
+    if (path === '/api/country') {
+      const cf = request.cf;
+      return Response.json({ country: (cf && cf.country) || null }, { headers: { 'cache-control': 'private, max-age=3600' } });
+    }
+
+    if (path.startsWith('/api/tmdb/')) {
+      const target = new URL('https://api.themoviedb.org/3/' + path.slice('/api/tmdb/'.length));
       url.searchParams.forEach((v, k) => target.searchParams.set(k, v));
       const key = getKey(env);
-      const headers: Record<string, string> = {};
+      const headers = {};
       if (key.length > 40) headers.Authorization = `Bearer ${key}`;
       else target.searchParams.set('api_key', key);
       const res = await fetch(target.toString(), { headers, cf: { cacheTtl: 300, cacheEverything: true } });
@@ -252,33 +266,32 @@ export default {
       });
     }
 
-    // 2. طلبات الصور
-    if (url.pathname.startsWith('/img/')) {
-      const res = await fetch('https://image.tmdb.org/t/p/' + url.pathname.slice(5), { cf: { cacheTtl: 86400, cacheEverything: true } });
+    if (path.startsWith('/img/')) {
+      const res = await fetch('https://image.tmdb.org/t/p/' + path.slice(5), { cf: { cacheTtl: 86400, cacheEverything: true } });
       return new Response(res.body, {
         status: res.status,
         headers: { 'content-type': res.headers.get('content-type') || 'image/jpeg', 'cache-control': 'public, max-age=86400' },
       });
     }
 
-    // 3. عرض الموقع (الملفات) وحقن كود الـ CSP
-    if (url.pathname === '/sitemap.xml') return sitemap(env, url);
-    if (url.pathname === '/top-movies') return topPage(env, url, 'movie');
-    if (url.pathname === '/top-tv') return topPage(env, url, 'tv');
-
-    const m = url.pathname.match(TITLE_ROUTE);
-    if (m) {
-      const page = await titlePage(env, url, m[1], m[2]);
-      if (page) return page;
+    if (isRead) {
+      const lang = pickLang(request);
+      const detail = path.match(/^\/(movie|tv)\/(\d+)$/);
+      if (detail) return renderDetail(request, env, detail[1], detail[2], lang);
+      const person = path.match(/^\/person\/(\d+)$/);
+      if (person) return renderPerson(request, env, person[1], lang);
+      const page = PAGES[path];
+      if (page) {
+        const [title, description] = page[lang];
+        return shell(
+          request,
+          env,
+          { title, description, noindex: !!page.noindex, image: `${url.origin}/og-image.png` },
+          lang,
+        );
+      }
     }
 
-    if (env.ASSETS) {
-      const res = await env.ASSETS.fetch(request);
-      const newHeaders = new Headers(res.headers);
-      newHeaders.set('Content-Security-Policy', "script-src 'self' 'unsafe-eval' 'unsafe-inline' https:;");
-      return new Response(res.body, { status: res.status, headers: newHeaders });
-    }
-    
-    return new Response('Not found', { status: 404 });
+    return env.ASSETS.fetch(request);
   },
 };
