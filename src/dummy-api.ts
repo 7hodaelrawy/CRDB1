@@ -125,6 +125,42 @@ export function useGetCinemaHome(params: { language?: Lang }, opts?: Opts) {
   });
 }
 
+/* ---------- Top 250 (weighted rating) ---------- */
+export function useGetCinemaTop(p: { mediaType: 'movie' | 'tv'; language?: Lang }, opts?: Opts) {
+  return useQuery<MediaItem[]>({
+    queryKey: ['cinema', 'top250', p],
+    staleTime: 60 * 60 * 1000,
+    ...opts?.query,
+    queryFn: async () => {
+      const pages = await Promise.all(
+        Array.from({ length: 13 }, (_, i) => i + 1).map(page =>
+          tmdb<Paged>(`/${p.mediaType}/top_rated`, { language: p.language, page })
+            .then(r => r.results || [])
+            .catch(() => [] as MediaItem[]),
+        ),
+      );
+      const seen = new Set<number>();
+      const pool = pages.flat().filter(i => {
+        if (seen.has(i.id) || !i.poster_path) return false;
+        seen.add(i.id);
+        return true;
+      });
+      if (!pool.length) throw new Error('No data from TMDB');
+      const m = p.mediaType === 'tv' ? 400 : 2000;
+      const mean = pool.reduce((sum, i) => sum + Number(i.vote_average || 0), 0) / pool.length;
+      const weighted = (i: MediaItem) => {
+        const v = Number(i.vote_count || 0);
+        const r = Number(i.vote_average || 0);
+        return (v / (v + m)) * r + (m / (v + m)) * mean;
+      };
+      return pool
+        .map(i => ({ ...i, media_type: p.mediaType, wr: weighted(i) }))
+        .sort((a, b) => Number(b.wr) - Number(a.wr))
+        .slice(0, 250);
+    },
+  });
+}
+
 /* ---------- Upcoming calendar ---------- */
 export function useGetCinemaUpcoming(p: { language?: Lang }, opts?: Opts) {
   return useQuery<MediaItem[]>({
