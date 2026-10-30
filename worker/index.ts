@@ -233,6 +233,254 @@ async function sitemap(env, origin) {
   });
 }
 
+/* ====================== الحسابات والتقييمات (D1) ====================== */
+
+const json = (data, status = 200, extra = {}) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...extra },
+  });
+
+const SESSION_DAYS = 30;
+const PBKDF2_ITERATIONS = 100000;
+const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
+const enc = new TextEncoder();
+
+const toB64 = (buf) => {
+  let s = '';
+  new Uint8Array(buf).forEach((b) => (s += String.fromCharCode(b)));
+  return btoa(s);
+};
+const fromB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+const toHex = (buf) => Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
+const sha256Hex = async (s) => toHex(await crypto.subtle.digest('SHA-256', enc.encode(s)));
+
+function safeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
+
+async function pbkdf2(password, salt, iterations) {
+  const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  return crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, key, 256);
+}
+async function makeHash(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const bits = await pbkdf2(password, salt, PBKDF2_ITERATIONS);
+  return `pbkdf2$${PBKDF2_ITERATIONS}$${toB64(salt)}$${toB64(bits)}`;
+}
+async function checkHash(password, stored) {
+  const [scheme, iters, salt, hash] = String(stored).split('$');
+  if (scheme !== 'pbkdf2') return false;
+  const bits = await pbkdf2(password, fromB64(salt), Number(iters));
+  return safeEqual(toB64(bits), hash);
+}
+const DUMMY_HASH = 'pbkdf2$100000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+
+const SCHEMA = [
+  'CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL, pass_hash TEXT NOT NULL, created_at INTEGER NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at INTEGER NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id)',
+  'CREATE TABLE IF NOT EXISTS ratings (user_id INTEGER NOT NULL, media_type TEXT NOT NULL, media_id INTEGER NOT NULL, rating INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (user_id, media_type, media_id))',
+  'CREATE INDEX IF NOT EXISTS idx_ratings_media ON ratings (media_type, media_id)',
+  'CREATE TABLE IF NOT EXISTS attempts (ip TEXT NOT NULL, ts INTEGER NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS idx_attempts_ip ON attempts (ip, ts)',
+];
+let schemaReady = null;
+function ensureSchema(env) {
+  if (!schemaReady) {
+    schemaReady = env.DB.batch(SCHEMA.map((s) => env.DB.prepare(s))).catch((e) => {
+      schemaReady = null;
+      throw e;
+    });
+  }
+  return schemaReady;
+}
+
+function getCookie(request, name) {
+  const hit = (request.headers.get('cookie') || '').split(/;\s*/).find((c) => c.startsWith(name + '='));
+  return hit ? hit.slice(name.length + 1) : '';
+}
+const cookieHeader = (value, maxAge) => `crdb_session=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
+
+async function currentUser(env, request) {
+  const token = getCookie(request, 'crdb_session');
+  if (!token || token.length > 100) return null;
+  const hash = await sha256Hex(token);
+  return env.DB
+    .prepare('SELECT u.id AS id, u.name AS name FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?')
+    .bind(hash, Date.now())
+    .first();
+}
+
+async function startSession(env, userId) {
+  const token = toHex(crypto.getRandomValues(new Uint8Array(32)));
+  const hash = await sha256Hex(token);
+  const now = Date.now();
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM sessions WHERE expires_at < ?').bind(now),
+    env.DB.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)').bind(hash, userId, now + SESSION_DAYS * 86400000),
+  ]);
+  return cookieHeader(token, SESSION_DAYS * 86400);
+}
+
+async function throttled(env, request) {
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const now = Date.now();
+  const row = await env.DB.prepare('SELECT COUNT(*) AS c FROM attempts WHERE ip = ? AND ts > ?').bind(ip, now - 600000).first();
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO attempts (ip, ts) VALUES (?, ?)').bind(ip, now),
+    env.DB.prepare('DELETE FROM attempts WHERE ts < ?').bind(now - 3600000),
+  ]);
+  return Number((row && row.c) || 0) >= 20;
+}
+
+async function readJson(request) {
+  if (Number(request.headers.get('content-length') || 0) > 4096) return null;
+  try {
+    const body = await request.json();
+    return body && typeof body === 'object' ? body : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseMedia(type, id) {
+  const t = String(type);
+  const n = Number(id);
+  if ((t !== 'movie' && t !== 'tv') || !Number.isInteger(n) || n < 1 || n > 99999999) return null;
+  return { type: t, id: n };
+}
+
+async function handleApi(request, env, url, path) {
+  if (!env.DB) {
+    if (path === '/api/me') return json({ user: null, enabled: false });
+    return json({ error: 'db_not_configured' }, 503);
+  }
+  try {
+    await ensureSchema(env);
+    const method = request.method;
+    if (method !== 'GET' && method !== 'HEAD' && request.headers.get('origin') !== url.origin) {
+      return json({ error: 'forbidden' }, 403);
+    }
+
+    if (path === '/api/me' && method === 'GET') {
+      const user = await currentUser(env, request);
+      return json({ user: user ? { id: user.id, name: user.name } : null, enabled: true });
+    }
+
+    if (path === '/api/auth/signup' && method === 'POST') {
+      if (await throttled(env, request)) return json({ error: 'too_many_attempts' }, 429);
+      const body = await readJson(request);
+      if (!body) return json({ error: 'generic' }, 400);
+      const email = String(body.email || '').trim().toLowerCase();
+      const name = String(body.name || '').replace(/[\u0000-\u001f\u007f]/g, '').trim();
+      const password = String(body.password || '');
+      if (!EMAIL_RE.test(email) || email.length > 254) return json({ error: 'invalid_email' }, 400);
+      if (name.length < 2 || name.length > 30) return json({ error: 'invalid_name' }, 400);
+      if (password.length < 8 || password.length > 128) return json({ error: 'weak_password' }, 400);
+      const passHash = await makeHash(password);
+      let userId;
+      try {
+        const r = await env.DB
+          .prepare('INSERT INTO users (email, name, pass_hash, created_at) VALUES (?, ?, ?, ?)')
+          .bind(email, name, passHash, Date.now())
+          .run();
+        userId = r.meta.last_row_id;
+      } catch (e) {
+        if (/UNIQUE/i.test(String((e && (e.message || e)) || ''))) return json({ error: 'email_taken' }, 409);
+        throw e;
+      }
+      const cookie = await startSession(env, userId);
+      return json({ user: { id: userId, name } }, 200, { 'set-cookie': cookie });
+    }
+
+    if (path === '/api/auth/login' && method === 'POST') {
+      if (await throttled(env, request)) return json({ error: 'too_many_attempts' }, 429);
+      const body = await readJson(request);
+      if (!body) return json({ error: 'generic' }, 400);
+      const email = String(body.email || '').trim().toLowerCase();
+      const password = String(body.password || '');
+      if (!email || email.length > 254 || password.length > 128) return json({ error: 'invalid_credentials' }, 401);
+      const row = await env.DB.prepare('SELECT id, name, pass_hash FROM users WHERE email = ?').bind(email).first();
+      const ok = await checkHash(password, row ? row.pass_hash : DUMMY_HASH);
+      if (!row || !ok) return json({ error: 'invalid_credentials' }, 401);
+      const cookie = await startSession(env, row.id);
+      return json({ user: { id: row.id, name: row.name } }, 200, { 'set-cookie': cookie });
+    }
+
+    if (path === '/api/auth/logout' && method === 'POST') {
+      const token = getCookie(request, 'crdb_session');
+      if (token && token.length <= 100) {
+        await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(await sha256Hex(token)).run();
+      }
+      return json({ ok: true }, 200, { 'set-cookie': cookieHeader('', 0) });
+    }
+
+    if (path === '/api/crdb/rating' && method === 'GET') {
+      const m = parseMedia(url.searchParams.get('type'), url.searchParams.get('id'));
+      if (!m) return json({ error: 'bad_request' }, 400);
+      const agg = await env.DB
+        .prepare('SELECT COUNT(*) AS c, AVG(rating) AS a FROM ratings WHERE media_type = ? AND media_id = ?')
+        .bind(m.type, m.id)
+        .first();
+      const user = await currentUser(env, request);
+      let mine = null;
+      if (user) {
+        const r = await env.DB
+          .prepare('SELECT rating FROM ratings WHERE user_id = ? AND media_type = ? AND media_id = ?')
+          .bind(user.id, m.type, m.id)
+          .first();
+        mine = r ? r.rating : null;
+      }
+      const count = agg ? Number(agg.c) : 0;
+      return json({ avg: count ? Math.round(Number(agg.a) * 10) / 10 : null, count, mine });
+    }
+
+    if (path === '/api/crdb/rating' && method === 'POST') {
+      const user = await currentUser(env, request);
+      if (!user) return json({ error: 'unauthorized' }, 401);
+      const body = await readJson(request);
+      const m = body && parseMedia(body.type, body.id);
+      const rating = body ? Number(body.rating) : NaN;
+      if (!m || !Number.isInteger(rating) || rating < 1 || rating > 10) return json({ error: 'bad_request' }, 400);
+      try {
+        await tmdbGet(env, `/${m.type}/${m.id}`);
+      } catch (e) {
+        if (e && e.status === 404) return json({ error: 'not_found' }, 404);
+      }
+      await env.DB
+        .prepare(
+          'INSERT INTO ratings (user_id, media_type, media_id, rating, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, media_type, media_id) DO UPDATE SET rating = excluded.rating, updated_at = excluded.updated_at',
+        )
+        .bind(user.id, m.type, m.id, rating, Date.now())
+        .run();
+      return json({ ok: true });
+    }
+
+    if (path === '/api/crdb/rating' && method === 'DELETE') {
+      const user = await currentUser(env, request);
+      if (!user) return json({ error: 'unauthorized' }, 401);
+      const m = parseMedia(url.searchParams.get('type'), url.searchParams.get('id'));
+      if (!m) return json({ error: 'bad_request' }, 400);
+      await env.DB
+        .prepare('DELETE FROM ratings WHERE user_id = ? AND media_type = ? AND media_id = ?')
+        .bind(user.id, m.type, m.id)
+        .run();
+      return json({ ok: true });
+    }
+
+    return json({ error: 'not_found' }, 404);
+  } catch (e) {
+    console.error('api error', e && (e.stack || e.message || e));
+    return json({ error: 'generic' }, 500);
+  }
+}
+
+/* ============================ المدخل الرئيسي ============================ */
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -265,6 +513,8 @@ export default {
         headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=300' },
       });
     }
+
+    if (path.startsWith('/api/')) return handleApi(request, env, url, path);
 
     if (path.startsWith('/img/')) {
       const res = await fetch('https://image.tmdb.org/t/p/' + path.slice(5), { cf: { cacheTtl: 86400, cacheEverything: true } });
