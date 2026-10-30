@@ -1,7 +1,7 @@
-import { createContext, Fragment, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Route, Switch, useLocation, useParams, useRoute } from 'wouter';
-import { ArrowRight, Bookmark, BookmarkCheck, BookmarkPlus, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, CircleAlert, Clapperboard, Film, Languages, Moon, Play, Search, Star, Sun, Trophy, Tv, X } from 'lucide-react';
+import { ArrowRight, Bookmark, BookmarkCheck, BookmarkPlus, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, CircleAlert, Clapperboard, Film, Languages, LogOut, Moon, Play, Search, Star, Sun, Trophy, Tv, UserRound, X } from 'lucide-react';
 import {
   useGetCinemaHome, useGetCinemaTrailer, useGetCinemaUpcoming, useGetCinemaEpisodeRatings, useGetCinemaTop, useDiscoverCinemaTitles, useSearchCinema, useGetCinemaGenres, useGetCinemaTitle,
   useGetCinemaPerson, useGetCinemaSeason, getDiscoverCinemaTitlesQueryKey, getSearchCinemaQueryKey,
@@ -16,6 +16,24 @@ import { useWatchlist, type SavedItem } from '@/watchlist';
 import '../src/index.css';
 
 const client = new QueryClient();
+
+class ApiError extends Error {
+  status: number;
+  code: string;
+  constructor(status: number, code: string) {
+    super(code);
+    this.status = status;
+    this.code = code;
+  }
+}
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, { credentials: 'same-origin', ...init, headers: { 'content-type': 'application/json', ...(init?.headers || {}) } });
+  let data: Record<string, unknown> | null = null;
+  try { data = await res.json(); } catch { /* empty body */ }
+  if (!res.ok) throw new ApiError(res.status, String(data?.error || 'generic'));
+  return data as T;
+}
+
 const img = (path?: string | null, size = 'w500') => path ? `/img/${size}${path}` : '';
 const titleOf = (item: Partial<MediaItem> | Record<string, unknown>) => String(item.title || item.name || item.original_title || item.original_name || 'Untitled');
 const dateOf = (item: Partial<MediaItem> | Record<string, unknown>) => String(item.release_date || item.first_air_date || '');
@@ -80,10 +98,15 @@ const heat = (r: number) => {
 };
 
 type Lang = 'en' | 'ar';
-const copy = {
+const baseCopy = {
   en: { home: 'Discover', movies: 'Movies', tv: 'Series', search: 'Search', tagline: 'Find your next story.', heroEyebrow: 'Your next watch starts here', explore: 'Explore title', trending: 'The conversation', trendingSub: 'Stories people are watching right now', moviesTitle: 'Movies worth your time', tvTitle: 'Series to get into', people: 'Faces behind the stories', browse: 'Browse', films: 'Movies', shows: 'Series', topRated: 'Top rated', newest: 'Recently released', popular: 'Most popular', sort: 'Sort by', genre: 'All genres', year: 'Any year', rating: 'Any rating', country: 'Country code', results: 'titles', noResults: 'No titles found', noResultsSub: 'Try changing a filter or exploring another genre.', retry: 'Try again', searchTitle: 'Search the whole story', searchSub: 'Titles, series, and the people who bring them to life.', searchPlaceholder: 'Try a title, actor, or director…', all: 'All', titles: 'Titles', cast: 'People', overview: 'Story', castTitle: 'Cast', crew: 'Key crew', details: 'At a glance', release: 'Release date', runtime: 'Runtime', status: 'Status', language: 'Original language', images: 'Stills & artwork', trailer: 'Watch the trailer', recommendations: 'You may also like', seasons: 'Seasons', season: 'Season', episodes: 'Episodes', biography: 'Biography', filmography: 'Known for', born: 'Born', birthplace: 'Place of birth', knownFor: 'Known for', loading: 'Finding the details…', failed: 'We couldn’t load this page.', back: 'Go back', emptyBio: 'No biography is available yet.', browseMore: 'Keep exploring', page: 'Page', previous: 'Previous', next: 'Next', noImage: 'No artwork available', castRole: 'as', watchProviders: 'Where to watch', providersEmpty: 'Provider details are not available.', languageLabel: 'العربية', verified: 'Reliable details. Zero fuss.', allTime: 'A better way to find what to watch.', watchlist: 'Watchlist', watchlistSub: 'Titles you saved to watch later. Saved on this device.', watchlistEmpty: 'Your watchlist is empty', watchlistEmptySub: 'Tap the bookmark on any title to save it here.', addWatchlist: 'Add to watchlist', inWatchlist: 'In your watchlist', wtwStream: 'Stream', wtwFree: 'Free', wtwRent: 'Rent', wtwBuy: 'Buy', wtwNoCountry: 'No listings for your country yet. Showing', wtwCredit: 'Streaming availability by JustWatch', wtwAll: 'See all options', calendar: 'Calendar', calendarTitle: 'Coming to theaters', calendarSub: 'Upcoming movies by release date, with a countdown for each one.', calendarNote: 'Dates follow TMDB and can differ by country.', addToCalendar: 'Add to your calendar', episodeRatings: 'Episode ratings', epRatingsSub: 'Every episode rated by viewers. Hover over a cell for details.', epBest: 'Best episode', epWorst: 'Lowest rated', epAvg: 'Avg', epSeasonShort: 'S', epNote: 'Ratings come from TMDB viewers; episodes with few votes can be noisy.', top: 'Top 250', topTitle: 'The 250 best-rated titles', topSub: 'Ranked by a weighted rating, so a title needs lots of votes, not just a high score.', topNote: 'Ranking is calculated by CRDb from TMDB viewer votes.', votes: 'votes', showMore: 'Show more' },
   ar: { home: 'اكتشف', movies: 'أفلام', tv: 'مسلسلات', search: 'بحث', tagline: 'حكايتك القادمة تبدأ هنا.', heroEyebrow: 'مشاهدتك القادمة تبدأ هنا', explore: 'اكتشف العمل', trending: 'حديث الجمهور', trendingSub: 'حكايات يشاهدها الناس الآن', moviesTitle: 'أفلام تستحق وقتك', tvTitle: 'مسلسلات تستحق المتابعة', people: 'وجوه وراء الحكايات', browse: 'تصفّح', films: 'أفلام', shows: 'مسلسلات', topRated: 'الأعلى تقييماً', newest: 'الأحدث', popular: 'الأكثر رواجاً', sort: 'ترتيب حسب', genre: 'كل التصنيفات', year: 'كل السنوات', rating: 'أي تقييم', country: 'رمز الدولة', results: 'أعمال', noResults: 'لم نعثر على أعمال', noResultsSub: 'جرّب تغيير الفلاتر أو استكشاف تصنيف آخر.', retry: 'حاول مجدداً', searchTitle: 'ابحث عن الحكاية كاملة', searchSub: 'أفلام ومسلسلات والأشخاص الذين يمنحونها الحياة.', searchPlaceholder: 'ابحث عن عمل أو ممثل أو مخرج…', all: 'الكل', titles: 'الأعمال', cast: 'الأشخاص', overview: 'القصة', castTitle: 'طاقم التمثيل', crew: 'فريق العمل', details: 'التفاصيل', release: 'تاريخ الإصدار', runtime: 'المدة', status: 'الحالة', language: 'اللغة الأصلية', images: 'صور ومشاهد', trailer: 'شاهد الإعلان', recommendations: 'قد يعجبك أيضاً', seasons: 'المواسم', season: 'الموسم', episodes: 'الحلقات', biography: 'نبذة', filmography: 'أعمال بارزة', born: 'تاريخ الميلاد', birthplace: 'مكان الميلاد', knownFor: 'معروف بـ', loading: 'جارٍ العثور على التفاصيل…', failed: 'تعذّر تحميل هذه الصفحة.', back: 'العودة', emptyBio: 'لا تتوفر نبذة بعد.', browseMore: 'تابع الاستكشاف', page: 'صفحة', previous: 'السابق', next: 'التالي', noImage: 'لا تتوفر صورة', castRole: 'بدور', watchProviders: 'أماكن المشاهدة', providersEmpty: 'تفاصيل المشاهدة غير متاحة.', languageLabel: 'English', verified: 'معلومات موثوقة. بلا تعقيد.', allTime: 'طريقة أسهل لاختيار ما تشاهده.', watchlist: 'قائمتي', watchlistSub: 'أعمال حفظتها لتشاهدها لاحقاً، وتُحفظ على هذا الجهاز.', watchlistEmpty: 'قائمتك فارغة', watchlistEmptySub: 'اضغط على علامة الحفظ في أي عمل ليظهر هنا.', addWatchlist: 'أضف إلى قائمتي', inWatchlist: 'في قائمتك', wtwStream: 'اشتراك', wtwFree: 'مجاناً', wtwRent: 'إيجار', wtwBuy: 'شراء', wtwNoCountry: 'لا توجد منصات لبلدك حتى الآن. المعروض لـ', wtwCredit: 'بيانات المشاهدة من JustWatch', wtwAll: 'كل الخيارات', calendar: 'التقويم', calendarTitle: 'قريباً في السينما', calendarSub: 'الأفلام القادمة حسب تاريخ العرض مع عدّاد تنازلي لكل فيلم.', calendarNote: 'التواريخ حسب TMDB وقد تختلف من بلد لآخر.', addToCalendar: 'أضف إلى تقويمك', episodeRatings: 'تقييمات الحلقات', epRatingsSub: 'كل حلقة بتقييم الجمهور. مرّر على أي خلية للتفاصيل.', epBest: 'أفضل حلقة', epWorst: 'أقل حلقة تقييماً', epAvg: 'المتوسط', epSeasonShort: 'م', epNote: 'التقييمات من جمهور TMDB، والحلقات قليلة الأصوات قد تكون غير دقيقة.', top: 'الأفضل ٢٥٠', topTitle: 'أفضل ٢٥٠ عملاً بتقييم الجمهور', topSub: 'الترتيب بتقييم موزون، فالعمل لازم يحصل على أصوات كتير مش درجة عالية بس.', topNote: 'الترتيب محسوب من CRDb بناءً على أصوات جمهور TMDB.', votes: 'صوت', showMore: 'عرض المزيد' }
 };
+const extraCopy = {
+  en: { signIn: 'Sign in', signUp: 'Create account', signOut: 'Sign out', email: 'Email', password: 'Password', displayName: 'Display name', authLoginTitle: 'Welcome back', authSignupTitle: 'Join CRDb', authLoginSub: 'Sign in to rate titles and keep your profile.', authSignupSub: 'Create an account to rate movies and series.', authNoAccount: 'New here?', authHaveAccount: 'Already have an account?', authNote: 'We only store your email, display name and your ratings.', authPasswordHint: 'At least 8 characters', authErrInvalid: 'Wrong email or password.', authErrTaken: 'This email is already registered.', authErrWeak: 'Password must be 8 to 128 characters.', authErrEmail: 'Please enter a valid email.', authErrName: 'Display name must be 2 to 30 characters.', authErrMany: 'Too many attempts. Try again in a few minutes.', authErrGeneric: 'Something went wrong. Please try again.', crdbRating: 'CRDb rating', rateThis: 'Tap a star to rate', yourRating: 'Your rating', removeRating: 'Remove', signInToRate: 'Sign in to rate', rateBeFirst: 'Be the first to rate', close: 'Close' },
+  ar: { signIn: 'تسجيل الدخول', signUp: 'إنشاء حساب', signOut: 'تسجيل الخروج', email: 'البريد الإلكتروني', password: 'كلمة المرور', displayName: 'الاسم الظاهر', authLoginTitle: 'أهلاً بعودتك', authSignupTitle: 'انضم إلى CRDb', authLoginSub: 'سجّل الدخول لتقيّم الأعمال وتحتفظ بملفك.', authSignupSub: 'أنشئ حساباً لتقيّم الأفلام والمسلسلات.', authNoAccount: 'جديد هنا؟', authHaveAccount: 'عندك حساب؟', authNote: 'نحتفظ فقط ببريدك واسمك الظاهر وتقييماتك.', authPasswordHint: '8 أحرف على الأقل', authErrInvalid: 'البريد أو كلمة المرور غير صحيحة.', authErrTaken: 'هذا البريد مسجّل من قبل.', authErrWeak: 'كلمة المرور لازم تكون من 8 إلى 128 حرفاً.', authErrEmail: 'اكتب بريداً إلكترونياً صحيحاً.', authErrName: 'الاسم الظاهر من 2 إلى 30 حرفاً.', authErrMany: 'محاولات كثيرة. جرّب بعد دقايق.', authErrGeneric: 'حصل خطأ. جرّب مرة تانية.', crdbRating: 'تقييم CRDb', rateThis: 'اضغط على نجمة لتقييم العمل', yourRating: 'تقييمك', removeRating: 'إزالة', signInToRate: 'سجّل الدخول للتقييم', rateBeFirst: 'كن أول من يقيّم', close: 'إغلاق' }
+};
+const copy = { en: { ...baseCopy.en, ...extraCopy.en }, ar: { ...baseCopy.ar, ...extraCopy.ar } };
 
 type Preferences = { lang: Lang; setLang: (lang: Lang) => void; dark: boolean; setDark: (dark: boolean) => void; t: typeof copy.en };
 const PreferenceContext = createContext<Preferences | null>(null);
@@ -120,8 +143,147 @@ function usePageMeta(title?: string | null, description?: string) {
   }, [title, description, t.tagline]);
 }
 
+type AuthUser = { id: number; name: string };
+type AuthState = { user: AuthUser | null; ready: boolean; enabled: boolean; openAuth: () => void; logout: () => Promise<void> };
+const AuthContext = createContext<AuthState | null>(null);
+function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('AuthProvider is missing');
+  return context;
+}
+
+function AuthModal({ onClose, onAuthed }: { onClose: () => void; onAuthed: (user: AuthUser) => void }) {
+  const { t } = usePreferences();
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [onClose]);
+  const errText = (code: string) => (({ invalid_credentials: t.authErrInvalid, email_taken: t.authErrTaken, weak_password: t.authErrWeak, invalid_email: t.authErrEmail, invalid_name: t.authErrName, too_many_attempts: t.authErrMany }) as Record<string, string>)[code] || t.authErrGeneric;
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const data = await api<{ user: AuthUser }>(`/api/auth/${mode}`, { method: 'POST', body: JSON.stringify({ name, email, password }) });
+      onAuthed(data.user);
+    } catch (err) {
+      setError(errText(err instanceof ApiError ? err.code : ''));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const signup = mode === 'signup';
+  return <div className="auth-modal" role="dialog" aria-modal="true" onClick={onClose}>
+    <div className="auth-card" onClick={e => e.stopPropagation()}>
+      <button type="button" className="auth-close" onClick={onClose} aria-label={t.close}><X size={18} /></button>
+      <h2>{signup ? t.authSignupTitle : t.authLoginTitle}</h2>
+      <p className="auth-sub">{signup ? t.authSignupSub : t.authLoginSub}</p>
+      <form onSubmit={submit}>
+        {signup && <label className="auth-field"><span>{t.displayName}</span><input value={name} onChange={e => setName(e.target.value)} autoComplete="nickname" maxLength={30} required /></label>}
+        <label className="auth-field"><span>{t.email}</span><input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" maxLength={254} required /></label>
+        <label className="auth-field"><span>{t.password}</span><input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete={signup ? 'new-password' : 'current-password'} minLength={signup ? 8 : undefined} maxLength={128} placeholder={signup ? t.authPasswordHint : undefined} required /></label>
+        {error && <p className="auth-error" role="alert">{error}</p>}
+        <button type="submit" className="auth-submit" disabled={busy}>{signup ? t.signUp : t.signIn}</button>
+      </form>
+      <p className="auth-switch">{signup ? t.authHaveAccount : t.authNoAccount} <button type="button" onClick={() => { setMode(signup ? 'login' : 'signup'); setError(''); }}>{signup ? t.signIn : t.signUp}</button></p>
+      {signup && <p className="auth-note">{t.authNote}</p>}
+    </div>
+  </div>;
+}
+
+function AuthProvider({ children }: { children: ReactNode }) {
+  const qc = useQueryClient();
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [ready, setReady] = useState(false);
+  const [enabled, setEnabled] = useState(false);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    api<{ user: AuthUser | null; enabled: boolean }>('/api/me')
+      .then(d => { setUser(d.user); setEnabled(!!d.enabled); })
+      .catch(() => {})
+      .finally(() => setReady(true));
+  }, []);
+  const logout = async () => {
+    try { await api('/api/auth/logout', { method: 'POST', body: '{}' }); } catch { /* ignore */ }
+    setUser(null);
+    qc.invalidateQueries({ queryKey: ['crdb'] });
+  };
+  const onAuthed = (u: AuthUser) => { setUser(u); setOpen(false); qc.invalidateQueries({ queryKey: ['crdb'] }); };
+  return <AuthContext.Provider value={{ user, ready, enabled, openAuth: () => setOpen(true), logout }}>
+    {children}
+    {open && <AuthModal onClose={() => setOpen(false)} onAuthed={onAuthed} />}
+  </AuthContext.Provider>;
+}
+
+function UserMenu() {
+  const auth = useAuth();
+  const { t } = usePreferences();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+  if (!auth.user) return null;
+  return <div className="user-menu" ref={ref}>
+    <button type="button" className="lang-btn auth-btn" onClick={() => setOpen(o => !o)} aria-expanded={open}><UserRound size={14} /><span>{auth.user.name}</span></button>
+    {open && <div className="user-pop"><div className="user-pop-name">{auth.user.name}</div><button type="button" onClick={() => { setOpen(false); auth.logout(); }}><LogOut size={15} />{t.signOut}</button></div>}
+  </div>;
+}
+
+function RatingBox({ kind, id }: { kind: 'movie' | 'tv'; id: number }) {
+  const { t } = usePreferences();
+  const auth = useAuth();
+  const qc = useQueryClient();
+  const [hover, setHover] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const key = ['crdb', 'rating', kind, id];
+  const q = useQuery({ queryKey: key, enabled: auth.enabled, queryFn: () => api<{ avg: number | null; count: number; mine: number | null }>(`/api/crdb/rating?type=${kind}&id=${id}`) });
+  if (!auth.enabled) return null;
+  const data = q.data;
+  const mine = data?.mine ?? 0;
+  const shown = hover || mine;
+  const change = async (run: () => Promise<unknown>) => {
+    setBusy(true);
+    try {
+      await run();
+      await qc.invalidateQueries({ queryKey: key });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) auth.openAuth();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const rate = (n: number) => {
+    if (!auth.user) { auth.openAuth(); return; }
+    change(() => api('/api/crdb/rating', { method: 'POST', body: JSON.stringify({ type: kind, id, rating: n }) }));
+  };
+  const clear = () => change(() => api(`/api/crdb/rating?type=${kind}&id=${id}`, { method: 'DELETE' }));
+  return <div className="rate-box">
+    <div className="rate-label">{t.crdbRating}</div>
+    <div className="rate-score"><Star size={20} fill="currentColor" /><strong>{data?.count && data.avg !== null ? data.avg.toFixed(1) : '—'}</strong><span>/10</span><em>{data?.count ? `${data.count.toLocaleString()} ${t.votes}` : t.rateBeFirst}</em></div>
+    <div className="rate-stars" onMouseLeave={() => setHover(0)}>
+      {Array.from({ length: 10 }, (_, i) => i + 1).map(n => <button key={n} type="button" disabled={busy} className={n <= shown ? 'on' : ''} onMouseEnter={() => setHover(n)} onClick={() => rate(n)} aria-label={`${n}/10`}><Star size={20} fill={n <= shown ? 'currentColor' : 'none'} /></button>)}
+    </div>
+    <div className="rate-foot">{auth.user ? (mine ? <>{t.yourRating}: <b>{mine}</b><button type="button" className="rate-clear" onClick={clear}>{t.removeRating}</button></> : t.rateThis) : <button type="button" className="rate-clear" onClick={auth.openAuth}>{t.signInToRate}</button>}</div>
+  </div>;
+}
+
 function Shell({ children }: { children: ReactNode }) {
   const pref = usePreferences();
+  const auth = useAuth();
   const [loc] = useLocation();
   const nav = [{ path: '/', label: pref.t.home, icon: Clapperboard }, { path: '/movies', label: pref.t.movies, icon: Film }, { path: '/tv', label: pref.t.tv, icon: Tv }, { path: '/top', label: pref.t.top, icon: Trophy }, { path: '/calendar', label: pref.t.calendar, icon: CalendarDays }, { path: '/watchlist', label: pref.t.watchlist, icon: Bookmark }];
   return <div className="shell">
@@ -130,6 +292,7 @@ function Shell({ children }: { children: ReactNode }) {
       <nav className="navlinks">{nav.map(n => <Link key={n.path} href={n.path} className={loc === n.path ? 'active' : ''} data-testid={`link-nav-${n.path === '/' ? 'home' : n.path.slice(1)}`}>{n.label}</Link>)}</nav>
       <div className="top-actions">
         <Link href="/search" className="icon-btn" aria-label={pref.t.search} data-testid="link-search"><Search size={17} /></Link>
+        {auth.enabled && (auth.user ? <UserMenu /> : <button type="button" className="lang-btn auth-btn" onClick={auth.openAuth}><UserRound size={14} /><span>{pref.t.signIn}</span></button>)}
         <button className="lang-btn" onClick={() => pref.setLang(pref.lang === 'en' ? 'ar' : 'en')} aria-label="Change language" data-testid="button-language"><Languages size={14} /><span>{pref.t.languageLabel}</span></button>
         <button className="icon-btn" onClick={() => pref.setDark(!pref.dark)} aria-label="Toggle theme" data-testid="button-theme">{pref.dark ? <Sun size={16} /> : <Moon size={16} />}</button>
       </div>
@@ -459,7 +622,8 @@ function DetailPage({ kind }: { kind: 'movie' | 'tv' }) {
           <div className="wl-row">
             {trailer && <button type="button" className="wl-cta play" onClick={() => setTrailerOpen(true)}><Play size={16} fill="currentColor" />{t.trailer}</button>}
             <button type="button" className={`wl-cta ${inList ? 'on' : ''}`} onClick={() => wl.toggle(toSaved(title, kind))}>{inList ? <BookmarkCheck size={17} /> : <BookmarkPlus size={17} />}{inList ? t.inWatchlist : t.addWatchlist}</button>
-          </div></div>
+          </div>
+          <RatingBox kind={kind} id={id} /></div>
       </div>
     </section>
     <div className="detail-body"><div className="detail-columns"><div>
@@ -530,7 +694,7 @@ function Router() {
 }
 
 function App() {
-  return <QueryClientProvider client={client}><TooltipProvider><PreferenceProvider><Router /></PreferenceProvider><Toaster /></TooltipProvider></QueryClientProvider>;
+  return <QueryClientProvider client={client}><TooltipProvider><PreferenceProvider><AuthProvider><Router /></AuthProvider></PreferenceProvider><Toaster /></TooltipProvider></QueryClientProvider>;
 }
 
 export default App;
