@@ -5,7 +5,23 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "run_worker_first": [
+      "/api/*",
+      "/img/*",
+      "/robots.txt",
+      "/sitemap.xml",
+      "/",
+      "/movies",
+      "/tv",
+      "/tv/*",
+      "/movie/*",
+      "/person/*",
+      "/top",
+      "/calendar",
+      "/watchlist",
+      "/search"
+    ]
   },
   "vars": {
     "TMDB_KEY": "5e11ae6a3daf0069b9c7c9f603bb2355"
