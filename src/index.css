@@ -253,3 +253,43 @@ a { color: inherit; text-decoration: none; }
   .mobile-nav a { min-width: 0; padding-inline: 2px; }
   .mobile-nav a span { font-size: 9px; white-space: nowrap; }
 }
+/* ---------- accounts & ratings ---------- */
+.auth-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.7); backdrop-filter: blur(6px); animation: imdbfade .2s ease; }
+.auth-card { position: relative; width: min(420px, 100%); padding: 28px 24px 22px; border-radius: 20px; background: hsl(var(--card)); color: hsl(var(--foreground)); border: 1px solid hsl(var(--border)); box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+.auth-card h2 { margin: 0; font-size: 24px; font-weight: 800; }
+.auth-sub { margin: 6px 0 18px; font-size: 14px; color: hsl(var(--muted-foreground)); }
+.auth-close { position: absolute; top: 12px; inset-inline-end: 12px; width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
+.auth-close:hover { background: hsl(var(--muted)); }
+.auth-field { display: block; margin-bottom: 14px; }
+.auth-field span { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 700; }
+.auth-field input { width: 100%; padding: 11px 14px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--background)); color: inherit; font-size: 15px; outline: none; }
+.auth-field input:focus { border-color: hsl(var(--primary)); }
+.auth-error { margin: 0 0 12px; font-size: 13px; font-weight: 700; color: hsl(var(--destructive)); }
+.auth-submit { width: 100%; padding: 12px; border: 0; border-radius: 999px; background: hsl(var(--primary)); color: #fff; font-size: 15px; font-weight: 800; cursor: pointer; }
+.auth-submit:disabled { opacity: .6; cursor: wait; }
+.auth-switch { margin: 16px 0 0; text-align: center; font-size: 14px; color: hsl(var(--muted-foreground)); }
+.auth-switch button { padding: 0; border: 0; background: transparent; color: hsl(var(--primary)); font-weight: 800; cursor: pointer; }
+.auth-note { margin: 10px 0 0; text-align: center; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.user-menu { position: relative; }
+.user-pop { position: absolute; top: calc(100% + 8px); inset-inline-end: 0; z-index: 60; min-width: 180px; padding: 8px; border: 1px solid hsl(var(--border)); border-radius: 14px; background: hsl(var(--card)); box-shadow: 0 14px 40px rgba(0,0,0,.25); }
+.user-pop-name { padding: 8px 10px; font-size: 13px; font-weight: 800; border-bottom: 1px solid hsl(var(--border)); margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-pop button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: transparent; color: inherit; font-size: 14px; cursor: pointer; text-align: start; }
+.user-pop button:hover { background: hsl(var(--muted)); }
+.auth-btn span { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rate-box { margin-top: 18px; padding: 14px 16px; width: fit-content; max-width: 100%; border-radius: 16px; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.2); color: #fff; backdrop-filter: blur(6px); }
+.rate-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: .75; }
+.rate-score { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: #f5c518; }
+.rate-score strong { font-size: 30px; line-height: 1; }
+.rate-score span { font-size: 14px; opacity: .8; }
+.rate-score em { margin-inline-start: 8px; font-style: normal; font-size: 12px; color: #fff; opacity: .75; }
+.rate-stars { direction: ltr; display: flex; gap: 2px; margin-top: 10px; }
+.rate-stars button { padding: 2px; border: 0; background: transparent; color: #f5c518; cursor: pointer; line-height: 0; opacity: .5; }
+.rate-stars button.on { opacity: 1; }
+.rate-stars button:disabled { cursor: wait; }
+.rate-foot { margin-top: 8px; font-size: 13px; }
+.rate-clear { padding: 0 6px; border: 0; background: transparent; color: #fff; font-size: 13px; text-decoration: underline; cursor: pointer; }
+@media (max-width: 650px) {
+  .auth-btn span { display: none; }
+  .rate-stars button { padding: 1px; }
+  .rate-stars button svg { width: 18px; height: 18px; }
+}
