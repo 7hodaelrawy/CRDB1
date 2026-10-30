@@ -88,7 +88,11 @@ const copy = {
 type Preferences = { lang: Lang; setLang: (lang: Lang) => void; dark: boolean; setDark: (dark: boolean) => void; t: typeof copy.en };
 const PreferenceContext = createContext<Preferences | null>(null);
 function PreferenceProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>(() => (localStorage.getItem('crdb-language-v1') as Lang) || 'ar');
+  const [lang, setLang] = useState<Lang>(() => {
+    const saved = localStorage.getItem('crdb-language-v1');
+    if (saved === 'ar' || saved === 'en') return saved;
+    return (navigator.language || '').toLowerCase().startsWith('ar') ? 'ar' : 'en';
+  });
   const [dark, setDark] = useState(() => localStorage.getItem('crdb-theme') === 'dark');
   useEffect(() => { document.documentElement.lang = lang; document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'; localStorage.setItem('crdb-language-v1', lang); }, [lang]);
   useEffect(() => { document.documentElement.classList.toggle('dark', dark); localStorage.setItem('crdb-theme', dark ? 'dark' : 'light'); }, [dark]);
@@ -98,6 +102,22 @@ function usePreferences() {
   const context = useContext(PreferenceContext);
   if (!context) throw new Error('PreferenceProvider is missing');
   return context;
+}
+function usePageMeta(title?: string | null, description?: string) {
+  const { t } = usePreferences();
+  useEffect(() => {
+    if (title === null) return;
+    document.title = title ? `${title} — CRDb` : `CRDb — ${t.tagline}`;
+    const text = (description || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+    if (!text) return;
+    let meta = document.querySelector('meta[name="description"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'description');
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', text);
+  }, [title, description, t.tagline]);
 }
 
 function Shell({ children }: { children: ReactNode }) {
@@ -162,6 +182,7 @@ function Section({ title, subtitle, items, kind, browseLabel = copy.en.browse }:
 
 function HomePage() {
   const { lang, t } = usePreferences();
+  usePageMeta(undefined);
   const [, setLocation] = useLocation();
   const q = useGetCinemaHome({ language: lang });
   const heroes = q.data?.hero || [];
@@ -228,6 +249,7 @@ function HomePage() {
 
 function TopPage() {
   const { lang, t } = usePreferences();
+  usePageMeta(t.topTitle, t.topSub);
   const wl = useWatchlist();
   const [tab, setTab] = useState<'movie' | 'tv'>('movie');
   const [shown, setShown] = useState(50);
@@ -255,6 +277,7 @@ function TopPage() {
 
 function CalendarPage() {
   const { lang, t } = usePreferences();
+  usePageMeta(t.calendarTitle, t.calendarSub);
   const wl = useWatchlist();
   const q = useGetCinemaUpcoming({ language: lang });
   const locale = lang === 'ar' ? 'ar' : 'en-US';
@@ -309,6 +332,7 @@ function BrowsePage({ kind }: { kind: 'movie' | 'tv' }) {
   const params = { mediaType: kind, language: lang, page, ...(genreId ? { genreId: Number(genreId) } : {}), ...(year ? { year: Number(year) } : {}), ...(minRating ? { minRating: Number(minRating) } : {}), ...(country ? { country: country.toUpperCase() } : {}), sortBy: sortBy as 'popularity.desc' | 'vote_average.desc' | 'primary_release_date.desc' | 'first_air_date.desc' };
   const results = useDiscoverCinemaTitles(params, { query: { queryKey: getDiscoverCinemaTitlesQueryKey(params) } });
   const title = kind === 'movie' ? t.moviesTitle : t.tvTitle;
+  usePageMeta(title);
   const resetPage = (fn: (v: string) => void) => (v: string) => { fn(v); setPage(1); };
   return <PageFrame><div className="eyebrow">{t.browse} / {kind === 'movie' ? t.films : t.shows}</div><h1 className="page-title">{title}</h1><p className="subhead">{t.verified}</p>
     <div className="filters">
@@ -325,6 +349,7 @@ function BrowsePage({ kind }: { kind: 'movie' | 'tv' }) {
 
 function SearchPage() {
   const { lang, t } = usePreferences();
+  usePageMeta(t.searchTitle);
   const [, setLocation] = useLocation();
   const [query, setQuery] = useState(() => new URLSearchParams(window.location.search).get('q') || '');
   const [tab, setTab] = useState('all'); const [page, setPage] = useState(1);
@@ -397,6 +422,7 @@ function DetailPage({ kind }: { kind: 'movie' | 'tv' }) {
   const title = q.data as MediaDetails | undefined;
   const seasons = (title?.seasons as Array<Record<string, unknown>> | undefined) || [];
   const seasonNumbers = seasons.map(s => Number(s.season_number)).filter(n => Number.isFinite(n) && n >= 1);
+  usePageMeta(title ? `${titleOf(title)}${yearOf(title) ? ` (${yearOf(title)})` : ''}` : null, title ? String(title.overview || '') : undefined);
   useEffect(() => { setSeasonNo(null); setTrailerOpen(false); }, [id]);
   const seasonParams = { id, seasonNumber: seasonNo ?? 0, language: lang };
   const season = useGetCinemaSeason(seasonParams, { query: { enabled: kind === 'tv' && seasonNo !== null, queryKey: getGetCinemaSeasonQueryKey(seasonParams) } });
@@ -467,6 +493,7 @@ function PersonPage() {
   const params = { id, language: lang };
   const q = useGetCinemaPerson(params, { query: { enabled: Number.isFinite(id) && id > 0, queryKey: getGetCinemaPersonQueryKey(params) } });
   const person = q.data as PersonDetails | undefined;
+  usePageMeta(person ? person.name : null, person?.biography);
   const credits = person?.combined_credits as Record<string, unknown> | undefined;
   const filmography = ((credits?.cast as MediaItem[] | undefined) || []).slice().sort((a, b) => (dateOf(b) || '').localeCompare(dateOf(a) || ''));
   if (q.isLoading) return <PageFrame><div className="skeleton" style={{ height: 400 }} /></PageFrame>;
@@ -478,6 +505,7 @@ function PersonPage() {
 
 function WatchlistPage() {
   const { t } = usePreferences();
+  usePageMeta(t.watchlist, t.watchlistSub);
   const wl = useWatchlist();
   return <PageFrame><div className="eyebrow">{t.watchlist}</div><h1 className="page-title">{t.watchlist}</h1><p className="subhead">{t.watchlistSub}</p>
     {wl.items.length ? <div className="media-grid">{wl.items.map(item => <div className="grid-poster" key={`${item.media_type}-${item.id}`}><PosterCard item={{ id: item.id, media_type: item.media_type, title: item.title, poster_path: item.poster_path, vote_average: item.vote_average, release_date: item.date }} kind={item.media_type} /></div>)}</div> : <StateBlock title={t.watchlistEmpty} text={t.watchlistEmptySub} />}
