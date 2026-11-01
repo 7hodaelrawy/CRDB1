@@ -424,6 +424,27 @@ async function handleApi(request, env, url, path) {
       return json({ ok: true }, 200, { 'set-cookie': cookieHeader('', 0) });
     }
 
+    // حذف الحساب نهائياً (بيتأكد من كلمة المرور)
+    if (path === '/api/auth/delete' && method === 'POST') {
+      const user = await currentUser(env, request);
+      if (!user) return json({ error: 'unauthorized' }, 401);
+      if (await throttled(env, `d:${user.id}`, 5)) return json({ error: 'too_many_attempts' }, 429);
+      const body = await readJson(request);
+      const password = body ? String(body.password || '') : '';
+      if (!password || password.length > 128) return json({ error: 'invalid_credentials' }, 401);
+      const row = await env.DB.prepare('SELECT pass_hash FROM users WHERE id = ?').bind(user.id).first();
+      if (!row || !(await checkHash(password, row.pass_hash))) return json({ error: 'invalid_credentials' }, 401);
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM review_reports WHERE review_id IN (SELECT id FROM reviews WHERE user_id = ?)').bind(user.id),
+        env.DB.prepare('DELETE FROM review_reports WHERE user_id = ?').bind(user.id),
+        env.DB.prepare('DELETE FROM reviews WHERE user_id = ?').bind(user.id),
+        env.DB.prepare('DELETE FROM ratings WHERE user_id = ?').bind(user.id),
+        env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id),
+        env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id),
+      ]);
+      return json({ ok: true }, 200, { 'set-cookie': cookieHeader('', 0) });
+    }
+
     if (path === '/api/crdb/rating' && method === 'GET') {
       const m = parseMedia(url.searchParams.get('type'), url.searchParams.get('id'));
       if (!m) return json({ error: 'bad_request' }, 400);
@@ -508,6 +529,7 @@ async function handleApi(request, env, url, path) {
       return json({
         items: list.slice(0, limit).map((r) => ({
           id: r.id,
+          uid: r.user_id,
           name: r.name,
           body: r.body,
           spoiler: !!r.spoiler,
@@ -585,6 +607,73 @@ async function handleApi(request, env, url, path) {
       return json({ ok: true });
     }
 
+    /* ---------- الملف الشخصي (عام) ---------- */
+
+    if (path === '/api/crdb/profile' && method === 'GET') {
+      const pid = Number(url.searchParams.get('id'));
+      if (!Number.isInteger(pid) || pid < 1) return json({ error: 'bad_request' }, 400);
+      const lang = url.searchParams.get('lang') === 'ar' ? 'ar' : 'en';
+      const u = await env.DB.prepare('SELECT id, name, created_at FROM users WHERE id = ?').bind(pid).first();
+      if (!u) return json({ error: 'not_found' }, 404);
+      const viewer = await currentUser(env, request);
+      const viewerId = viewer ? viewer.id : 0;
+      const visible = '(r.user_id = ? OR (SELECT COUNT(*) FROM review_reports x WHERE x.review_id = r.id) < ?)';
+      const [agg, rvCount, ratingRows, reviewRows] = await Promise.all([
+        env.DB.prepare('SELECT COUNT(*) AS c, AVG(rating) AS a FROM ratings WHERE user_id = ?').bind(pid).first(),
+        env.DB.prepare(`SELECT COUNT(*) AS c FROM reviews r WHERE r.user_id = ? AND ${visible}`).bind(pid, viewerId, REPORT_HIDE).first(),
+        env.DB.prepare('SELECT media_type, media_id, rating FROM ratings WHERE user_id = ? ORDER BY updated_at DESC LIMIT 20').bind(pid).all(),
+        env.DB
+          .prepare(
+            `SELECT r.id, r.media_type, r.media_id, r.body, r.spoiler, r.created_at, rt.rating FROM reviews r LEFT JOIN ratings rt ON rt.user_id = r.user_id AND rt.media_type = r.media_type AND rt.media_id = r.media_id WHERE r.user_id = ? AND ${visible} ORDER BY r.created_at DESC LIMIT 10`,
+          )
+          .bind(pid, viewerId, REPORT_HIDE)
+          .all(),
+      ]);
+      const ratings = ratingRows.results || [];
+      const reviews = reviewRows.results || [];
+      const keys = new Set();
+      ratings.forEach((r) => keys.add(`${r.media_type}:${r.media_id}`));
+      reviews.forEach((r) => keys.add(`${r.media_type}:${r.media_id}`));
+      const info = new Map();
+      await Promise.all(
+        Array.from(keys).map(async (k) => {
+          const [type, id] = k.split(':');
+          try {
+            const d = await tmdbGet(env, `/${type}/${id}`, { language: lang });
+            info.set(k, {
+              title: d.title || d.name || d.original_title || d.original_name || 'Untitled',
+              poster_path: d.poster_path || null,
+              year: String(d.release_date || d.first_air_date || '').slice(0, 4),
+            });
+          } catch {
+            info.set(k, { title: 'Untitled', poster_path: null, year: '' });
+          }
+        }),
+      );
+      const media = (type, id) => info.get(`${type}:${id}`) || { title: 'Untitled', poster_path: null, year: '' };
+      const count = agg ? Number(agg.c) : 0;
+      return json({
+        user: { id: u.id, name: u.name, created_at: u.created_at },
+        stats: {
+          ratings: count,
+          avg: count ? Math.round(Number(agg.a) * 10) / 10 : null,
+          reviews: rvCount ? Number(rvCount.c) : 0,
+        },
+        ratings: ratings.map((r) => ({ type: r.media_type, id: r.media_id, rating: r.rating, ...media(r.media_type, r.media_id) })),
+        reviews: reviews.map((r) => ({
+          reviewId: r.id,
+          type: r.media_type,
+          id: r.media_id,
+          body: r.body,
+          spoiler: !!r.spoiler,
+          created_at: r.created_at,
+          rating: r.rating == null ? null : r.rating,
+          ...media(r.media_type, r.media_id),
+        })),
+        isMe: !!viewer && viewer.id === pid,
+      });
+    }
+
     return json({ error: 'not_found' }, 404);
   } catch (e) {
     console.error('api error', e && (e.stack || e.message || e));
@@ -601,7 +690,7 @@ export default {
     const isRead = request.method === 'GET' || request.method === 'HEAD';
 
     if (path === '/robots.txt') {
-      const txt = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /search\nDisallow: /watchlist\n\nSitemap: ${url.origin}/sitemap.xml\n`;
+      const txt = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /search\nDisallow: /watchlist\nDisallow: /u/\n\nSitemap: ${url.origin}/sitemap.xml\n`;
       return new Response(txt, { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
     }
 
