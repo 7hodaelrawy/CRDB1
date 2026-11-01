@@ -103,8 +103,8 @@ const baseCopy = {
   ar: { home: 'اكتشف', movies: 'أفلام', tv: 'مسلسلات', search: 'بحث', tagline: 'حكايتك القادمة تبدأ هنا.', heroEyebrow: 'مشاهدتك القادمة تبدأ هنا', explore: 'اكتشف العمل', trending: 'حديث الجمهور', trendingSub: 'حكايات يشاهدها الناس الآن', moviesTitle: 'أفلام تستحق وقتك', tvTitle: 'مسلسلات تستحق المتابعة', people: 'وجوه وراء الحكايات', browse: 'تصفّح', films: 'أفلام', shows: 'مسلسلات', topRated: 'الأعلى تقييماً', newest: 'الأحدث', popular: 'الأكثر رواجاً', sort: 'ترتيب حسب', genre: 'كل التصنيفات', year: 'كل السنوات', rating: 'أي تقييم', country: 'رمز الدولة', results: 'أعمال', noResults: 'لم نعثر على أعمال', noResultsSub: 'جرّب تغيير الفلاتر أو استكشاف تصنيف آخر.', retry: 'حاول مجدداً', searchTitle: 'ابحث عن الحكاية كاملة', searchSub: 'أفلام ومسلسلات والأشخاص الذين يمنحونها الحياة.', searchPlaceholder: 'ابحث عن عمل أو ممثل أو مخرج…', all: 'الكل', titles: 'الأعمال', cast: 'الأشخاص', overview: 'القصة', castTitle: 'طاقم التمثيل', crew: 'فريق العمل', details: 'التفاصيل', release: 'تاريخ الإصدار', runtime: 'المدة', status: 'الحالة', language: 'اللغة الأصلية', images: 'صور ومشاهد', trailer: 'شاهد الإعلان', recommendations: 'قد يعجبك أيضاً', seasons: 'المواسم', season: 'الموسم', episodes: 'الحلقات', biography: 'نبذة', filmography: 'أعمال بارزة', born: 'تاريخ الميلاد', birthplace: 'مكان الميلاد', knownFor: 'معروف بـ', loading: 'جارٍ العثور على التفاصيل…', failed: 'تعذّر تحميل هذه الصفحة.', back: 'العودة', emptyBio: 'لا تتوفر نبذة بعد.', browseMore: 'تابع الاستكشاف', page: 'صفحة', previous: 'السابق', next: 'التالي', noImage: 'لا تتوفر صورة', castRole: 'بدور', watchProviders: 'أماكن المشاهدة', providersEmpty: 'تفاصيل المشاهدة غير متاحة.', languageLabel: 'English', verified: 'معلومات موثوقة. بلا تعقيد.', allTime: 'طريقة أسهل لاختيار ما تشاهده.', watchlist: 'قائمتي', watchlistSub: 'أعمال حفظتها لتشاهدها لاحقاً، وتُحفظ على هذا الجهاز.', watchlistEmpty: 'قائمتك فارغة', watchlistEmptySub: 'اضغط على علامة الحفظ في أي عمل ليظهر هنا.', addWatchlist: 'أضف إلى قائمتي', inWatchlist: 'في قائمتك', wtwStream: 'اشتراك', wtwFree: 'مجاناً', wtwRent: 'إيجار', wtwBuy: 'شراء', wtwNoCountry: 'لا توجد منصات لبلدك حتى الآن. المعروض لـ', wtwCredit: 'بيانات المشاهدة من JustWatch', wtwAll: 'كل الخيارات', calendar: 'التقويم', calendarTitle: 'قريباً في السينما', calendarSub: 'الأفلام القادمة حسب تاريخ العرض مع عدّاد تنازلي لكل فيلم.', calendarNote: 'التواريخ حسب TMDB وقد تختلف من بلد لآخر.', addToCalendar: 'أضف إلى تقويمك', episodeRatings: 'تقييمات الحلقات', epRatingsSub: 'كل حلقة بتقييم الجمهور. مرّر على أي خلية للتفاصيل.', epBest: 'أفضل حلقة', epWorst: 'أقل حلقة تقييماً', epAvg: 'المتوسط', epSeasonShort: 'م', epNote: 'التقييمات من جمهور TMDB، والحلقات قليلة الأصوات قد تكون غير دقيقة.', top: 'الأفضل ٢٥٠', topTitle: 'أفضل ٢٥٠ عملاً بتقييم الجمهور', topSub: 'الترتيب بتقييم موزون، فالعمل لازم يحصل على أصوات كتير مش درجة عالية بس.', topNote: 'الترتيب محسوب من CRDb بناءً على أصوات جمهور TMDB.', votes: 'صوت', showMore: 'عرض المزيد' }
 };
 const extraCopy = {
-  en: { signIn: 'Sign in', signUp: 'Create account', signOut: 'Sign out', email: 'Email', password: 'Password', displayName: 'Display name', authLoginTitle: 'Welcome back', authSignupTitle: 'Join CRDb', authLoginSub: 'Sign in to rate titles and keep your profile.', authSignupSub: 'Create an account to rate movies and series.', authNoAccount: 'New here?', authHaveAccount: 'Already have an account?', authNote: 'We only store your email, display name and your ratings.', authPasswordHint: 'At least 8 characters', authErrInvalid: 'Wrong email or password.', authErrTaken: 'This email is already registered.', authErrWeak: 'Password must be 8 to 128 characters.', authErrEmail: 'Please enter a valid email.', authErrName: 'Display name must be 2 to 30 characters.', authErrMany: 'Too many attempts. Try again in a few minutes.', authErrGeneric: 'Something went wrong. Please try again.', crdbRating: 'CRDb rating', rateThis: 'Tap a star to rate', yourRating: 'Your rating', removeRating: 'Remove', signInToRate: 'Sign in to rate', rateBeFirst: 'Be the first to rate', close: 'Close', reviews: 'Reviews', rvRules: 'Be respectful and mark spoilers. Abusive reviews can be reported and hidden. Your display name is public.', rvPlaceholder: 'What did you think? Write in any language.', rvSpoilerCheck: 'This review contains spoilers', rvSubmit: 'Post review', rvSave: 'Save changes', rvCancel: 'Cancel', rvEdit: 'Edit your review', rvDelete: 'Delete', rvConfirmDelete: 'Delete your review?', rvSpoilerWarn: 'Spoiler warning', rvSpoilerTag: 'Spoiler', rvReveal: 'Tap to reveal', rvEmpty: 'No reviews yet. Be the first to share what you think.', rvSignIn: 'Sign in to write a review', rvMore: 'Show more reviews', rvReport: 'Report', rvReported: 'Reported', rvErrShort: 'Write at least 10 characters.', rvErrMany: 'Too many requests. Try again in a few minutes.' },
-  ar: { signIn: 'تسجيل الدخول', signUp: 'إنشاء حساب', signOut: 'تسجيل الخروج', email: 'البريد الإلكتروني', password: 'كلمة المرور', displayName: 'الاسم الظاهر', authLoginTitle: 'أهلاً بعودتك', authSignupTitle: 'انضم إلى CRDb', authLoginSub: 'سجّل الدخول لتقيّم الأعمال وتحتفظ بملفك.', authSignupSub: 'أنشئ حساباً لتقيّم الأفلام والمسلسلات.', authNoAccount: 'جديد هنا؟', authHaveAccount: 'عندك حساب؟', authNote: 'نحتفظ فقط ببريدك واسمك الظاهر وتقييماتك.', authPasswordHint: '8 أحرف على الأقل', authErrInvalid: 'البريد أو كلمة المرور غير صحيحة.', authErrTaken: 'هذا البريد مسجّل من قبل.', authErrWeak: 'كلمة المرور لازم تكون من 8 إلى 128 حرفاً.', authErrEmail: 'اكتب بريداً إلكترونياً صحيحاً.', authErrName: 'الاسم الظاهر من 2 إلى 30 حرفاً.', authErrMany: 'محاولات كثيرة. جرّب بعد دقايق.', authErrGeneric: 'حصل خطأ. جرّب مرة تانية.', crdbRating: 'تقييم CRDb', rateThis: 'اضغط على نجمة لتقييم العمل', yourRating: 'تقييمك', removeRating: 'إزالة', signInToRate: 'سجّل الدخول للتقييم', rateBeFirst: 'كن أول من يقيّم', close: 'إغلاق', reviews: 'المراجعات', rvRules: 'التزم بالاحترام وعلّم الحرق. المراجعات المسيئة يمكن الإبلاغ عنها وإخفاؤها. اسمك الظاهر معروض للجميع.', rvPlaceholder: 'إيه رأيك؟ اكتب بأي لغة.', rvSpoilerCheck: 'المراجعة دي فيها حرق للأحداث', rvSubmit: 'انشر المراجعة', rvSave: 'احفظ التعديلات', rvCancel: 'إلغاء', rvEdit: 'عدّل مراجعتك', rvDelete: 'حذف', rvConfirmDelete: 'تحذف مراجعتك؟', rvSpoilerWarn: 'تحذير: حرق للأحداث', rvSpoilerTag: 'حرق', rvReveal: 'اضغط للإظهار', rvEmpty: 'مفيش مراجعات لسه. كن أول من يشاركنا رأيه.', rvSignIn: 'سجّل الدخول لتكتب مراجعة', rvMore: 'عرض مراجعات أكتر', rvReport: 'إبلاغ', rvReported: 'تم الإبلاغ', rvErrShort: 'اكتب 10 أحرف على الأقل.', rvErrMany: 'طلبات كتير. جرّب بعد دقايق.' }
+  en: { signIn: 'Sign in', signUp: 'Create account', signOut: 'Sign out', email: 'Email', password: 'Password', displayName: 'Display name', authLoginTitle: 'Welcome back', authSignupTitle: 'Join CRDb', authLoginSub: 'Sign in to rate titles and keep your profile.', authSignupSub: 'Create an account to rate movies and series.', authNoAccount: 'New here?', authHaveAccount: 'Already have an account?', authNote: 'Your email stays private. Your display name, ratings and reviews are public.', authPasswordHint: 'At least 8 characters', authErrInvalid: 'Wrong email or password.', authErrTaken: 'This email is already registered.', authErrWeak: 'Password must be 8 to 128 characters.', authErrEmail: 'Please enter a valid email.', authErrName: 'Display name must be 2 to 30 characters.', authErrMany: 'Too many attempts. Try again in a few minutes.', authErrGeneric: 'Something went wrong. Please try again.', crdbRating: 'CRDb rating', rateThis: 'Tap a star to rate', yourRating: 'Your rating', removeRating: 'Remove', signInToRate: 'Sign in to rate', rateBeFirst: 'Be the first to rate', close: 'Close', reviews: 'Reviews', rvRules: 'Be respectful and mark spoilers. Abusive reviews can be reported and hidden. Your display name is public.', rvPlaceholder: 'What did you think? Write in any language.', rvSpoilerCheck: 'This review contains spoilers', rvSubmit: 'Post review', rvSave: 'Save changes', rvCancel: 'Cancel', rvEdit: 'Edit your review', rvDelete: 'Delete', rvConfirmDelete: 'Delete your review?', rvSpoilerWarn: 'Spoiler warning', rvSpoilerTag: 'Spoiler', rvReveal: 'Tap to reveal', rvEmpty: 'No reviews yet. Be the first to share what you think.', rvSignIn: 'Sign in to write a review', rvMore: 'Show more reviews', rvReport: 'Report', rvReported: 'Reported', rvErrShort: 'Write at least 10 characters.', rvErrMany: 'Too many requests. Try again in a few minutes.', myProfile: 'My profile', memberSince: 'Member since', pfRatings: 'Ratings', pfAvg: 'Average rating', pfReviews: 'Reviews', pfNoRatings: 'No ratings yet.', pfNoReviews: 'No reviews yet.', pfNotFound: 'This profile doesn’t exist.', pfPublic: 'Profiles are public: the display name, ratings and reviews are visible to everyone. The email is never shown.', pfLatest: 'Latest ratings', pfLatestReviews: 'Latest reviews', delTitle: 'Delete account', delWarn: 'This permanently deletes your account, ratings and reviews. It can’t be undone.', delBtn: 'Delete my account', delConfirm: 'Yes, delete everything', delPwd: 'Enter your password to confirm' },
+  ar: { signIn: 'تسجيل الدخول', signUp: 'إنشاء حساب', signOut: 'تسجيل الخروج', email: 'البريد الإلكتروني', password: 'كلمة المرور', displayName: 'الاسم الظاهر', authLoginTitle: 'أهلاً بعودتك', authSignupTitle: 'انضم إلى CRDb', authLoginSub: 'سجّل الدخول لتقيّم الأعمال وتحتفظ بملفك.', authSignupSub: 'أنشئ حساباً لتقيّم الأفلام والمسلسلات.', authNoAccount: 'جديد هنا؟', authHaveAccount: 'عندك حساب؟', authNote: 'بريدك يفضل خاص. اسمك الظاهر وتقييماتك ومراجعاتك معروضة للجميع.', authPasswordHint: '8 أحرف على الأقل', authErrInvalid: 'البريد أو كلمة المرور غير صحيحة.', authErrTaken: 'هذا البريد مسجّل من قبل.', authErrWeak: 'كلمة المرور لازم تكون من 8 إلى 128 حرفاً.', authErrEmail: 'اكتب بريداً إلكترونياً صحيحاً.', authErrName: 'الاسم الظاهر من 2 إلى 30 حرفاً.', authErrMany: 'محاولات كثيرة. جرّب بعد دقايق.', authErrGeneric: 'حصل خطأ. جرّب مرة تانية.', crdbRating: 'تقييم CRDb', rateThis: 'اضغط على نجمة لتقييم العمل', yourRating: 'تقييمك', removeRating: 'إزالة', signInToRate: 'سجّل الدخول للتقييم', rateBeFirst: 'كن أول من يقيّم', close: 'إغلاق', reviews: 'المراجعات', rvRules: 'التزم بالاحترام وعلّم الحرق. المراجعات المسيئة يمكن الإبلاغ عنها وإخفاؤها. اسمك الظاهر معروض للجميع.', rvPlaceholder: 'إيه رأيك؟ اكتب بأي لغة.', rvSpoilerCheck: 'المراجعة دي فيها حرق للأحداث', rvSubmit: 'انشر المراجعة', rvSave: 'احفظ التعديلات', rvCancel: 'إلغاء', rvEdit: 'عدّل مراجعتك', rvDelete: 'حذف', rvConfirmDelete: 'تحذف مراجعتك؟', rvSpoilerWarn: 'تحذير: حرق للأحداث', rvSpoilerTag: 'حرق', rvReveal: 'اضغط للإظهار', rvEmpty: 'مفيش مراجعات لسه. كن أول من يشاركنا رأيه.', rvSignIn: 'سجّل الدخول لتكتب مراجعة', rvMore: 'عرض مراجعات أكتر', rvReport: 'إبلاغ', rvReported: 'تم الإبلاغ', rvErrShort: 'اكتب 10 أحرف على الأقل.', rvErrMany: 'طلبات كتير. جرّب بعد دقايق.', myProfile: 'ملفي', memberSince: 'عضو منذ', pfRatings: 'التقييمات', pfAvg: 'متوسط التقييم', pfReviews: 'المراجعات', pfNoRatings: 'مفيش تقييمات لسه.', pfNoReviews: 'مفيش مراجعات لسه.', pfNotFound: 'الملف ده مش موجود.', pfPublic: 'الملفات الشخصية عامة: الاسم الظاهر والتقييمات والمراجعات يشوفها الجميع. البريد الإلكتروني ما بيظهرش أبداً.', pfLatest: 'آخر التقييمات', pfLatestReviews: 'آخر المراجعات', delTitle: 'حذف الحساب', delWarn: 'ده بيحذف حسابك وتقييماتك ومراجعاتك نهائياً، ومفيش رجوع.', delBtn: 'احذف حسابي', delConfirm: 'أيوه، احذف كل حاجة', delPwd: 'اكتب كلمة المرور للتأكيد' }
 };
 const copy = { en: { ...baseCopy.en, ...extraCopy.en }, ar: { ...baseCopy.ar, ...extraCopy.ar } };
 
@@ -141,6 +141,15 @@ function usePageMeta(title?: string | null, description?: string) {
     }
     meta.setAttribute('content', text);
   }, [title, description, t.tagline]);
+}
+function useNoIndex() {
+  useEffect(() => {
+    const meta = document.createElement('meta');
+    meta.setAttribute('name', 'robots');
+    meta.setAttribute('content', 'noindex,nofollow');
+    document.head.appendChild(meta);
+    return () => { meta.remove(); };
+  }, []);
 }
 
 type AuthUser = { id: number; name: string };
@@ -239,7 +248,11 @@ function UserMenu() {
   if (!auth.user) return null;
   return <div className="user-menu" ref={ref}>
     <button type="button" className="lang-btn auth-btn" onClick={() => setOpen(o => !o)} aria-expanded={open}><UserRound size={14} /><span>{auth.user.name}</span></button>
-    {open && <div className="user-pop"><div className="user-pop-name">{auth.user.name}</div><button type="button" onClick={() => { setOpen(false); auth.logout(); }}><LogOut size={15} />{t.signOut}</button></div>}
+    {open && <div className="user-pop">
+      <div className="user-pop-name">{auth.user.name}</div>
+      <Link href={`/u/${auth.user.id}`} onClick={() => setOpen(false)}><UserRound size={15} />{t.myProfile}</Link>
+      <button type="button" onClick={() => { setOpen(false); auth.logout(); }}><LogOut size={15} />{t.signOut}</button>
+    </div>}
   </div>;
 }
 
@@ -282,7 +295,7 @@ function RatingBox({ kind, id }: { kind: 'movie' | 'tv'; id: number }) {
   </div>;
 }
 
-type Review = { id: number; name: string; body: string; spoiler: boolean; created_at: number; rating: number | null; mine: boolean };
+type Review = { id: number; uid: number; name: string; body: string; spoiler: boolean; created_at: number; rating: number | null; mine: boolean };
 type ReviewsData = { items: Review[]; hasMore: boolean; total: number; mine: { body: string; spoiler: boolean } | null };
 
 function ReviewItem({ review, onReport, onDelete }: { review: Review; onReport: (id: number) => Promise<boolean>; onDelete: () => void }) {
@@ -299,7 +312,7 @@ function ReviewItem({ review, onReport, onDelete }: { review: Review; onReport: 
   };
   return <article className="rv-item">
     <div className="rv-head">
-      <strong>{review.name}</strong>
+      <Link href={`/u/${review.uid}`} className="rv-name">{review.name}</Link>
       {review.rating ? <span className="rv-rate"><Star size={12} fill="currentColor" />{review.rating}/10</span> : null}
       {review.spoiler && <span className="rv-badge">{t.rvSpoilerTag}</span>}
       <span className="rv-date">{when}</span>
@@ -787,6 +800,118 @@ function PersonPage() {
   </PageFrame>;
 }
 
+type ProfileMedia = { type: 'movie' | 'tv'; id: number; title: string; poster_path: string | null; year: string };
+type ProfileData = {
+  user: { id: number; name: string; created_at: number };
+  stats: { ratings: number; avg: number | null; reviews: number };
+  ratings: Array<ProfileMedia & { rating: number }>;
+  reviews: Array<ProfileMedia & { reviewId: number; body: string; spoiler: boolean; created_at: number; rating: number | null }>;
+  isMe: boolean;
+};
+
+function ProfileReview({ r, isMe }: { r: ProfileData['reviews'][number]; isMe: boolean }) {
+  const { lang, t } = usePreferences();
+  const [shown, setShown] = useState(!r.spoiler || isMe);
+  const when = new Date(r.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return <article className="rv-item">
+    <div className="rv-head">
+      <Link href={`/${r.type}/${r.id}`} className="rv-name">{r.title}{r.year ? ` (${r.year})` : ''}</Link>
+      {r.rating ? <span className="rv-rate"><Star size={12} fill="currentColor" />{r.rating}/10</span> : null}
+      {r.spoiler && <span className="rv-badge">{t.rvSpoilerTag}</span>}
+      <span className="rv-date">{when}</span>
+    </div>
+    {shown
+      ? <p className="rv-body" dir="auto">{r.body}</p>
+      : <button type="button" className="rv-spoiler" onClick={() => setShown(true)}><EyeOff size={18} />{t.rvSpoilerWarn}<span>{t.rvReveal}</span></button>}
+  </article>;
+}
+
+function ProfilePage() {
+  const p = useParams<{ id: string }>();
+  const uid = Number(p.id);
+  const { lang, t } = usePreferences();
+  const auth = useAuth();
+  const [, setLocation] = useLocation();
+  useNoIndex();
+  const q = useQuery({
+    queryKey: ['crdb', 'profile', uid, lang],
+    enabled: auth.enabled && Number.isInteger(uid) && uid > 0,
+    retry: false,
+    queryFn: () => api<ProfileData>(`/api/crdb/profile?id=${uid}&lang=${lang}`),
+  });
+  usePageMeta(q.data ? q.data.user.name : null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pwd, setPwd] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const del = async (e: FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setErr('');
+    try {
+      await api('/api/auth/delete', { method: 'POST', body: JSON.stringify({ password: pwd }) });
+      await auth.logout();
+      setLocation('/');
+    } catch (er) {
+      const code = er instanceof ApiError ? er.code : '';
+      setErr(code === 'invalid_credentials' ? t.authErrInvalid : code === 'too_many_attempts' ? t.authErrMany : t.authErrGeneric);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (auth.ready && !auth.enabled) return <PageFrame><StateBlock error title={t.failed} text={t.noResultsSub} /></PageFrame>;
+  if (!auth.ready || q.isLoading) return <PageFrame><div className="skeleton" style={{ height: 160 }} /><div className="skeleton" style={{ height: 260, marginTop: 24 }} /></PageFrame>;
+  if (q.isError || !q.data) return <PageFrame><StateBlock title={t.pfNotFound} text={t.noResultsSub} /></PageFrame>;
+  const d = q.data;
+  const joined = new Date(d.user.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en-US', { year: 'numeric', month: 'long' });
+  return <PageFrame>
+    <div className="pf-head">
+      <div className="pf-avatar" aria-hidden="true">{Array.from(d.user.name)[0]?.toUpperCase() || '?'}</div>
+      <div>
+        <h1 className="page-title" style={{ margin: 0 }}>{d.user.name}</h1>
+        <p className="subhead" style={{ margin: '6px 0 0' }}>{t.memberSince} {joined}</p>
+      </div>
+    </div>
+    <div className="pf-stats">
+      <div className="pf-stat"><strong>{d.stats.ratings.toLocaleString()}</strong><span>{t.pfRatings}</span></div>
+      <div className="pf-stat"><strong>{d.stats.avg !== null ? d.stats.avg.toFixed(1) : '—'}</strong><span>{t.pfAvg}</span></div>
+      <div className="pf-stat"><strong>{d.stats.reviews.toLocaleString()}</strong><span>{t.pfReviews}</span></div>
+    </div>
+    <section className="section">
+      <div className="section-head"><h2 className="section-title">{t.pfLatest}</h2></div>
+      {d.ratings.length
+        ? <div className="pf-grid">{d.ratings.map(r => <Link key={`${r.type}-${r.id}`} href={`/${r.type}/${r.id}`} className="pf-card">
+          {img(r.poster_path, 'w342') ? <img src={img(r.poster_path, 'w342')} alt={r.title} loading="lazy" /> : <div className="pf-card-ph" />}
+          <span className="pf-card-rate"><Star size={11} fill="currentColor" />{r.rating}/10</span>
+          <div className="pf-card-title">{r.title}</div>
+        </Link>)}</div>
+        : <p className="wtw-note">{t.pfNoRatings}</p>}
+    </section>
+    <section className="section">
+      <div className="section-head"><h2 className="section-title">{t.pfLatestReviews}</h2></div>
+      {d.reviews.length
+        ? <div className="rv-list">{d.reviews.map(r => <ProfileReview key={r.reviewId} r={r} isMe={d.isMe} />)}</div>
+        : <p className="wtw-note">{t.pfNoReviews}</p>}
+    </section>
+    <p className="wtw-credit">{t.pfPublic}</p>
+    {d.isMe && <section className="pf-del">
+      <h3>{t.delTitle}</h3>
+      <p>{t.delWarn}</p>
+      {!confirmOpen
+        ? <button type="button" className="rv-btn" onClick={() => setConfirmOpen(true)}>{t.delBtn}</button>
+        : <form onSubmit={del}>
+          <label className="auth-field"><span>{t.delPwd}</span><input type="password" value={pwd} onChange={e => setPwd(e.target.value)} autoComplete="current-password" maxLength={128} required /></label>
+          {err && <p className="auth-error" role="alert">{err}</p>}
+          <div className="rv-actions">
+            <button type="submit" className="rv-btn danger" disabled={busy}>{t.delConfirm}</button>
+            <button type="button" className="rv-btn" onClick={() => { setConfirmOpen(false); setPwd(''); setErr(''); }}>{t.rvCancel}</button>
+          </div>
+        </form>}
+    </section>}
+  </PageFrame>;
+}
+
 function WatchlistPage() {
   const { t } = usePreferences();
   usePageMeta(t.watchlist, t.watchlistSub);
@@ -806,6 +931,7 @@ function Router() {
     <Route path="/top" component={TopPage} />
     <Route path="/calendar" component={CalendarPage} />
     <Route path="/watchlist" component={WatchlistPage} />
+    <Route path="/u/:id" component={ProfilePage} />
     <Route path="/movie/:id"><DetailPage kind="movie" /></Route>
     <Route path="/tv/:id"><DetailPage kind="tv" /></Route>
     <Route path="/person/:id" component={PersonPage} />
