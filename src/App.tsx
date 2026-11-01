@@ -1,7 +1,7 @@
 import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Route, Switch, useLocation, useParams, useRoute } from 'wouter';
-import { ArrowRight, Bookmark, BookmarkCheck, BookmarkPlus, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, CircleAlert, Clapperboard, Film, Languages, LogOut, Moon, Play, Search, Star, Sun, Trophy, Tv, UserRound, X } from 'lucide-react';
+import { ArrowRight, Bookmark, BookmarkCheck, BookmarkPlus, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, CircleAlert, Clapperboard, EyeOff, Film, Flag, Languages, LogOut, Moon, Play, Search, Star, Sun, Trash2, Trophy, Tv, UserRound, X } from 'lucide-react';
 import {
   useGetCinemaHome, useGetCinemaTrailer, useGetCinemaUpcoming, useGetCinemaEpisodeRatings, useGetCinemaTop, useDiscoverCinemaTitles, useSearchCinema, useGetCinemaGenres, useGetCinemaTitle,
   useGetCinemaPerson, useGetCinemaSeason, getDiscoverCinemaTitlesQueryKey, getSearchCinemaQueryKey,
@@ -103,8 +103,8 @@ const baseCopy = {
   ar: { home: 'اكتشف', movies: 'أفلام', tv: 'مسلسلات', search: 'بحث', tagline: 'حكايتك القادمة تبدأ هنا.', heroEyebrow: 'مشاهدتك القادمة تبدأ هنا', explore: 'اكتشف العمل', trending: 'حديث الجمهور', trendingSub: 'حكايات يشاهدها الناس الآن', moviesTitle: 'أفلام تستحق وقتك', tvTitle: 'مسلسلات تستحق المتابعة', people: 'وجوه وراء الحكايات', browse: 'تصفّح', films: 'أفلام', shows: 'مسلسلات', topRated: 'الأعلى تقييماً', newest: 'الأحدث', popular: 'الأكثر رواجاً', sort: 'ترتيب حسب', genre: 'كل التصنيفات', year: 'كل السنوات', rating: 'أي تقييم', country: 'رمز الدولة', results: 'أعمال', noResults: 'لم نعثر على أعمال', noResultsSub: 'جرّب تغيير الفلاتر أو استكشاف تصنيف آخر.', retry: 'حاول مجدداً', searchTitle: 'ابحث عن الحكاية كاملة', searchSub: 'أفلام ومسلسلات والأشخاص الذين يمنحونها الحياة.', searchPlaceholder: 'ابحث عن عمل أو ممثل أو مخرج…', all: 'الكل', titles: 'الأعمال', cast: 'الأشخاص', overview: 'القصة', castTitle: 'طاقم التمثيل', crew: 'فريق العمل', details: 'التفاصيل', release: 'تاريخ الإصدار', runtime: 'المدة', status: 'الحالة', language: 'اللغة الأصلية', images: 'صور ومشاهد', trailer: 'شاهد الإعلان', recommendations: 'قد يعجبك أيضاً', seasons: 'المواسم', season: 'الموسم', episodes: 'الحلقات', biography: 'نبذة', filmography: 'أعمال بارزة', born: 'تاريخ الميلاد', birthplace: 'مكان الميلاد', knownFor: 'معروف بـ', loading: 'جارٍ العثور على التفاصيل…', failed: 'تعذّر تحميل هذه الصفحة.', back: 'العودة', emptyBio: 'لا تتوفر نبذة بعد.', browseMore: 'تابع الاستكشاف', page: 'صفحة', previous: 'السابق', next: 'التالي', noImage: 'لا تتوفر صورة', castRole: 'بدور', watchProviders: 'أماكن المشاهدة', providersEmpty: 'تفاصيل المشاهدة غير متاحة.', languageLabel: 'English', verified: 'معلومات موثوقة. بلا تعقيد.', allTime: 'طريقة أسهل لاختيار ما تشاهده.', watchlist: 'قائمتي', watchlistSub: 'أعمال حفظتها لتشاهدها لاحقاً، وتُحفظ على هذا الجهاز.', watchlistEmpty: 'قائمتك فارغة', watchlistEmptySub: 'اضغط على علامة الحفظ في أي عمل ليظهر هنا.', addWatchlist: 'أضف إلى قائمتي', inWatchlist: 'في قائمتك', wtwStream: 'اشتراك', wtwFree: 'مجاناً', wtwRent: 'إيجار', wtwBuy: 'شراء', wtwNoCountry: 'لا توجد منصات لبلدك حتى الآن. المعروض لـ', wtwCredit: 'بيانات المشاهدة من JustWatch', wtwAll: 'كل الخيارات', calendar: 'التقويم', calendarTitle: 'قريباً في السينما', calendarSub: 'الأفلام القادمة حسب تاريخ العرض مع عدّاد تنازلي لكل فيلم.', calendarNote: 'التواريخ حسب TMDB وقد تختلف من بلد لآخر.', addToCalendar: 'أضف إلى تقويمك', episodeRatings: 'تقييمات الحلقات', epRatingsSub: 'كل حلقة بتقييم الجمهور. مرّر على أي خلية للتفاصيل.', epBest: 'أفضل حلقة', epWorst: 'أقل حلقة تقييماً', epAvg: 'المتوسط', epSeasonShort: 'م', epNote: 'التقييمات من جمهور TMDB، والحلقات قليلة الأصوات قد تكون غير دقيقة.', top: 'الأفضل ٢٥٠', topTitle: 'أفضل ٢٥٠ عملاً بتقييم الجمهور', topSub: 'الترتيب بتقييم موزون، فالعمل لازم يحصل على أصوات كتير مش درجة عالية بس.', topNote: 'الترتيب محسوب من CRDb بناءً على أصوات جمهور TMDB.', votes: 'صوت', showMore: 'عرض المزيد' }
 };
 const extraCopy = {
-  en: { signIn: 'Sign in', signUp: 'Create account', signOut: 'Sign out', email: 'Email', password: 'Password', displayName: 'Display name', authLoginTitle: 'Welcome back', authSignupTitle: 'Join CRDb', authLoginSub: 'Sign in to rate titles and keep your profile.', authSignupSub: 'Create an account to rate movies and series.', authNoAccount: 'New here?', authHaveAccount: 'Already have an account?', authNote: 'We only store your email, display name and your ratings.', authPasswordHint: 'At least 8 characters', authErrInvalid: 'Wrong email or password.', authErrTaken: 'This email is already registered.', authErrWeak: 'Password must be 8 to 128 characters.', authErrEmail: 'Please enter a valid email.', authErrName: 'Display name must be 2 to 30 characters.', authErrMany: 'Too many attempts. Try again in a few minutes.', authErrGeneric: 'Something went wrong. Please try again.', crdbRating: 'CRDb rating', rateThis: 'Tap a star to rate', yourRating: 'Your rating', removeRating: 'Remove', signInToRate: 'Sign in to rate', rateBeFirst: 'Be the first to rate', close: 'Close' },
-  ar: { signIn: 'تسجيل الدخول', signUp: 'إنشاء حساب', signOut: 'تسجيل الخروج', email: 'البريد الإلكتروني', password: 'كلمة المرور', displayName: 'الاسم الظاهر', authLoginTitle: 'أهلاً بعودتك', authSignupTitle: 'انضم إلى CRDb', authLoginSub: 'سجّل الدخول لتقيّم الأعمال وتحتفظ بملفك.', authSignupSub: 'أنشئ حساباً لتقيّم الأفلام والمسلسلات.', authNoAccount: 'جديد هنا؟', authHaveAccount: 'عندك حساب؟', authNote: 'نحتفظ فقط ببريدك واسمك الظاهر وتقييماتك.', authPasswordHint: '8 أحرف على الأقل', authErrInvalid: 'البريد أو كلمة المرور غير صحيحة.', authErrTaken: 'هذا البريد مسجّل من قبل.', authErrWeak: 'كلمة المرور لازم تكون من 8 إلى 128 حرفاً.', authErrEmail: 'اكتب بريداً إلكترونياً صحيحاً.', authErrName: 'الاسم الظاهر من 2 إلى 30 حرفاً.', authErrMany: 'محاولات كثيرة. جرّب بعد دقايق.', authErrGeneric: 'حصل خطأ. جرّب مرة تانية.', crdbRating: 'تقييم CRDb', rateThis: 'اضغط على نجمة لتقييم العمل', yourRating: 'تقييمك', removeRating: 'إزالة', signInToRate: 'سجّل الدخول للتقييم', rateBeFirst: 'كن أول من يقيّم', close: 'إغلاق' }
+  en: { signIn: 'Sign in', signUp: 'Create account', signOut: 'Sign out', email: 'Email', password: 'Password', displayName: 'Display name', authLoginTitle: 'Welcome back', authSignupTitle: 'Join CRDb', authLoginSub: 'Sign in to rate titles and keep your profile.', authSignupSub: 'Create an account to rate movies and series.', authNoAccount: 'New here?', authHaveAccount: 'Already have an account?', authNote: 'We only store your email, display name and your ratings.', authPasswordHint: 'At least 8 characters', authErrInvalid: 'Wrong email or password.', authErrTaken: 'This email is already registered.', authErrWeak: 'Password must be 8 to 128 characters.', authErrEmail: 'Please enter a valid email.', authErrName: 'Display name must be 2 to 30 characters.', authErrMany: 'Too many attempts. Try again in a few minutes.', authErrGeneric: 'Something went wrong. Please try again.', crdbRating: 'CRDb rating', rateThis: 'Tap a star to rate', yourRating: 'Your rating', removeRating: 'Remove', signInToRate: 'Sign in to rate', rateBeFirst: 'Be the first to rate', close: 'Close', reviews: 'Reviews', rvRules: 'Be respectful and mark spoilers. Abusive reviews can be reported and hidden. Your display name is public.', rvPlaceholder: 'What did you think? Write in any language.', rvSpoilerCheck: 'This review contains spoilers', rvSubmit: 'Post review', rvSave: 'Save changes', rvCancel: 'Cancel', rvEdit: 'Edit your review', rvDelete: 'Delete', rvConfirmDelete: 'Delete your review?', rvSpoilerWarn: 'Spoiler warning', rvSpoilerTag: 'Spoiler', rvReveal: 'Tap to reveal', rvEmpty: 'No reviews yet. Be the first to share what you think.', rvSignIn: 'Sign in to write a review', rvMore: 'Show more reviews', rvReport: 'Report', rvReported: 'Reported', rvErrShort: 'Write at least 10 characters.', rvErrMany: 'Too many requests. Try again in a few minutes.' },
+  ar: { signIn: 'تسجيل الدخول', signUp: 'إنشاء حساب', signOut: 'تسجيل الخروج', email: 'البريد الإلكتروني', password: 'كلمة المرور', displayName: 'الاسم الظاهر', authLoginTitle: 'أهلاً بعودتك', authSignupTitle: 'انضم إلى CRDb', authLoginSub: 'سجّل الدخول لتقيّم الأعمال وتحتفظ بملفك.', authSignupSub: 'أنشئ حساباً لتقيّم الأفلام والمسلسلات.', authNoAccount: 'جديد هنا؟', authHaveAccount: 'عندك حساب؟', authNote: 'نحتفظ فقط ببريدك واسمك الظاهر وتقييماتك.', authPasswordHint: '8 أحرف على الأقل', authErrInvalid: 'البريد أو كلمة المرور غير صحيحة.', authErrTaken: 'هذا البريد مسجّل من قبل.', authErrWeak: 'كلمة المرور لازم تكون من 8 إلى 128 حرفاً.', authErrEmail: 'اكتب بريداً إلكترونياً صحيحاً.', authErrName: 'الاسم الظاهر من 2 إلى 30 حرفاً.', authErrMany: 'محاولات كثيرة. جرّب بعد دقايق.', authErrGeneric: 'حصل خطأ. جرّب مرة تانية.', crdbRating: 'تقييم CRDb', rateThis: 'اضغط على نجمة لتقييم العمل', yourRating: 'تقييمك', removeRating: 'إزالة', signInToRate: 'سجّل الدخول للتقييم', rateBeFirst: 'كن أول من يقيّم', close: 'إغلاق', reviews: 'المراجعات', rvRules: 'التزم بالاحترام وعلّم الحرق. المراجعات المسيئة يمكن الإبلاغ عنها وإخفاؤها. اسمك الظاهر معروض للجميع.', rvPlaceholder: 'إيه رأيك؟ اكتب بأي لغة.', rvSpoilerCheck: 'المراجعة دي فيها حرق للأحداث', rvSubmit: 'انشر المراجعة', rvSave: 'احفظ التعديلات', rvCancel: 'إلغاء', rvEdit: 'عدّل مراجعتك', rvDelete: 'حذف', rvConfirmDelete: 'تحذف مراجعتك؟', rvSpoilerWarn: 'تحذير: حرق للأحداث', rvSpoilerTag: 'حرق', rvReveal: 'اضغط للإظهار', rvEmpty: 'مفيش مراجعات لسه. كن أول من يشاركنا رأيه.', rvSignIn: 'سجّل الدخول لتكتب مراجعة', rvMore: 'عرض مراجعات أكتر', rvReport: 'إبلاغ', rvReported: 'تم الإبلاغ', rvErrShort: 'اكتب 10 أحرف على الأقل.', rvErrMany: 'طلبات كتير. جرّب بعد دقايق.' }
 };
 const copy = { en: { ...baseCopy.en, ...extraCopy.en }, ar: { ...baseCopy.ar, ...extraCopy.ar } };
 
@@ -260,6 +260,7 @@ function RatingBox({ kind, id }: { kind: 'movie' | 'tv'; id: number }) {
     try {
       await run();
       await qc.invalidateQueries({ queryKey: key });
+      await qc.invalidateQueries({ queryKey: ['crdb', 'reviews', kind, id] });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) auth.openAuth();
     } finally {
@@ -279,6 +280,124 @@ function RatingBox({ kind, id }: { kind: 'movie' | 'tv'; id: number }) {
     </div>
     <div className="rate-foot">{auth.user ? (mine ? <>{t.yourRating}: <b>{mine}</b><button type="button" className="rate-clear" onClick={clear}>{t.removeRating}</button></> : t.rateThis) : <button type="button" className="rate-clear" onClick={auth.openAuth}>{t.signInToRate}</button>}</div>
   </div>;
+}
+
+type Review = { id: number; name: string; body: string; spoiler: boolean; created_at: number; rating: number | null; mine: boolean };
+type ReviewsData = { items: Review[]; hasMore: boolean; total: number; mine: { body: string; spoiler: boolean } | null };
+
+function ReviewItem({ review, onReport, onDelete }: { review: Review; onReport: (id: number) => Promise<boolean>; onDelete: () => void }) {
+  const { lang, t } = usePreferences();
+  const [shown, setShown] = useState(!review.spoiler || review.mine);
+  const [reported, setReported] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const when = new Date(review.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  const doReport = async () => {
+    setBusy(true);
+    const ok = await onReport(review.id);
+    setBusy(false);
+    if (ok) setReported(true);
+  };
+  return <article className="rv-item">
+    <div className="rv-head">
+      <strong>{review.name}</strong>
+      {review.rating ? <span className="rv-rate"><Star size={12} fill="currentColor" />{review.rating}/10</span> : null}
+      {review.spoiler && <span className="rv-badge">{t.rvSpoilerTag}</span>}
+      <span className="rv-date">{when}</span>
+    </div>
+    {shown
+      ? <p className="rv-body" dir="auto">{review.body}</p>
+      : <button type="button" className="rv-spoiler" onClick={() => setShown(true)}><EyeOff size={18} />{t.rvSpoilerWarn}<span>{t.rvReveal}</span></button>}
+    <div className="rv-foot">
+      {review.mine
+        ? <button type="button" className="rv-link" onClick={onDelete}><Trash2 size={13} />{t.rvDelete}</button>
+        : reported
+          ? <span className="rv-link">{t.rvReported}</span>
+          : <button type="button" className="rv-link" disabled={busy} onClick={doReport}><Flag size={13} />{t.rvReport}</button>}
+    </div>
+  </article>;
+}
+
+function ReviewsSection({ kind, id }: { kind: 'movie' | 'tv'; id: number }) {
+  const { t } = usePreferences();
+  const auth = useAuth();
+  const qc = useQueryClient();
+  const [limit, setLimit] = useState(10);
+  const [text, setText] = useState('');
+  const [spoiler, setSpoiler] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => { setLimit(10); setEditing(false); setText(''); setSpoiler(false); setError(''); }, [kind, id]);
+  const q = useQuery({
+    queryKey: ['crdb', 'reviews', kind, id, limit],
+    enabled: auth.enabled,
+    placeholderData: keepPreviousData,
+    queryFn: () => api<ReviewsData>(`/api/crdb/reviews?type=${kind}&id=${id}&limit=${limit}`),
+  });
+  if (!auth.enabled) return null;
+  const data = q.data;
+  const mine = data?.mine || null;
+  const refresh = () => qc.invalidateQueries({ queryKey: ['crdb', 'reviews', kind, id] });
+  const startEdit = () => { if (mine) { setText(mine.body); setSpoiler(mine.spoiler); setError(''); setEditing(true); } };
+  const cancel = () => { setEditing(false); setText(''); setSpoiler(false); setError(''); };
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    const body = text.trim();
+    if (body.length < 10) { setError(t.rvErrShort); return; }
+    setBusy(true);
+    setError('');
+    try {
+      await api('/api/crdb/review', { method: 'POST', body: JSON.stringify({ type: kind, id, body, spoiler }) });
+      setText('');
+      setSpoiler(false);
+      setEditing(false);
+      await refresh();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) auth.openAuth();
+      else setError((({ too_many_attempts: t.rvErrMany, body_too_short: t.rvErrShort }) as Record<string, string>)[err instanceof ApiError ? err.code : ''] || t.authErrGeneric);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async () => {
+    if (!window.confirm(t.rvConfirmDelete)) return;
+    try { await api(`/api/crdb/review?type=${kind}&id=${id}`, { method: 'DELETE' }); } catch { /* ignore */ }
+    cancel();
+    await refresh();
+  };
+  const report = async (reviewId: number) => {
+    if (!auth.user) { auth.openAuth(); return false; }
+    try {
+      await api('/api/crdb/review/report', { method: 'POST', body: JSON.stringify({ reviewId }) });
+      return true;
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) auth.openAuth();
+      return false;
+    }
+  };
+  const showForm = !!auth.user && (!mine || editing);
+  return <section className="section rv-section">
+    <div className="section-head"><div><h2 className="section-title">{t.reviews}{data ? <span className="rv-count">{data.total.toLocaleString()}</span> : null}</h2><p className="section-kicker">{t.rvRules}</p></div></div>
+    {!auth.user && <button type="button" className="rv-btn primary" onClick={auth.openAuth}>{t.rvSignIn}</button>}
+    {auth.user && mine && !editing && <button type="button" className="rv-btn" onClick={startEdit}>{t.rvEdit}</button>}
+    {showForm && <form className="rv-form" onSubmit={submit}>
+      <textarea dir="auto" value={text} onChange={e => setText(e.target.value)} placeholder={t.rvPlaceholder} aria-label={t.reviews} maxLength={3000} />
+      <div className="rv-form-foot">
+        <label className="rv-check"><input type="checkbox" checked={spoiler} onChange={e => setSpoiler(e.target.checked)} />{t.rvSpoilerCheck}</label>
+        <span className="rv-counter">{text.length} / 3000</span>
+      </div>
+      {error && <p className="rv-error" role="alert">{error}</p>}
+      <div className="rv-actions">
+        <button type="submit" className="rv-btn primary" disabled={busy}>{mine ? t.rvSave : t.rvSubmit}</button>
+        {editing && <button type="button" className="rv-btn" onClick={cancel}>{t.rvCancel}</button>}
+      </div>
+    </form>}
+    {data?.items.length
+      ? <div className="rv-list">{data.items.map(r => <ReviewItem key={r.id} review={r} onReport={report} onDelete={remove} />)}</div>
+      : q.isLoading ? <div className="skeleton" style={{ height: 120, marginTop: 18 }} /> : <p className="wtw-note">{t.rvEmpty}</p>}
+    {data?.hasMore && <button type="button" className="rv-btn rv-more" onClick={() => setLimit(l => l + 10)}>{t.rvMore}</button>}
+  </section>;
 }
 
 function Shell({ children }: { children: ReactNode }) {
@@ -646,6 +765,7 @@ function DetailPage({ kind }: { kind: 'movie' | 'tv' }) {
         {typeof region?.link === 'string' && <p className="wtw-note"><a href={region.link} target="_blank" rel="noreferrer noopener">{t.wtwAll}</a></p>}
         <p className="wtw-credit">{t.wtwCredit}</p>
       </section>}
+      <ReviewsSection kind={kind} id={id} />
       {recoItems.length > 0 && <Section title={t.recommendations} items={recoItems} kind={recommendationsLinkKind} browseLabel={t.browse} />}
     </div><aside className="info-panel"><h3 style={{ margin: '0 0 5px', font: '800 17px var(--app-font-serif)' }}>{t.details}</h3>{[[t.release, dateOf(title)], [t.runtime, title.runtime ? `${title.runtime} min` : title.episode_run_time ? `${(title.episode_run_time as number[])[0]} min` : '—'], [t.status, String(title.status || '—')], [t.language, String(title.original_language || '—')], [t.knownFor, String(title.tagline || '—')]].map(([label, value]) => <div className="info-line" key={label}><strong>{label}</strong><span>{value}</span></div>)}</aside></div></div>
     {trailerOpen && trailer && <TrailerModal videoKey={String(trailer.key)} title={titleOf(title)} onClose={() => setTrailerOpen(false)} />}
