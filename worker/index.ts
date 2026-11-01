@@ -233,7 +233,7 @@ async function sitemap(env, origin) {
   });
 }
 
-/* ====================== الحسابات والتقييمات (D1) ====================== */
+/* ====================== الحسابات والتقييمات والمراجعات (D1) ====================== */
 
 const json = (data, status = 200, extra = {}) =>
   new Response(JSON.stringify(data), {
@@ -243,6 +243,7 @@ const json = (data, status = 200, extra = {}) =>
 
 const SESSION_DAYS = 30;
 const PBKDF2_ITERATIONS = 100000;
+const REPORT_HIDE = 3;
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
 const enc = new TextEncoder();
 
@@ -287,6 +288,9 @@ const SCHEMA = [
   'CREATE INDEX IF NOT EXISTS idx_ratings_media ON ratings (media_type, media_id)',
   'CREATE TABLE IF NOT EXISTS attempts (ip TEXT NOT NULL, ts INTEGER NOT NULL)',
   'CREATE INDEX IF NOT EXISTS idx_attempts_ip ON attempts (ip, ts)',
+  'CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, media_type TEXT NOT NULL, media_id INTEGER NOT NULL, body TEXT NOT NULL, spoiler INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, UNIQUE (user_id, media_type, media_id))',
+  'CREATE INDEX IF NOT EXISTS idx_reviews_media ON reviews (media_type, media_id, created_at)',
+  'CREATE TABLE IF NOT EXISTS review_reports (review_id INTEGER NOT NULL, user_id INTEGER NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (review_id, user_id))',
 ];
 let schemaReady = null;
 function ensureSchema(env) {
@@ -326,19 +330,20 @@ async function startSession(env, userId) {
   return cookieHeader(token, SESSION_DAYS * 86400);
 }
 
-async function throttled(env, request) {
-  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+const clientIp = (request) => request.headers.get('cf-connecting-ip') || 'unknown';
+
+async function throttled(env, key, limit) {
   const now = Date.now();
-  const row = await env.DB.prepare('SELECT COUNT(*) AS c FROM attempts WHERE ip = ? AND ts > ?').bind(ip, now - 600000).first();
+  const row = await env.DB.prepare('SELECT COUNT(*) AS c FROM attempts WHERE ip = ? AND ts > ?').bind(key, now - 600000).first();
   await env.DB.batch([
-    env.DB.prepare('INSERT INTO attempts (ip, ts) VALUES (?, ?)').bind(ip, now),
+    env.DB.prepare('INSERT INTO attempts (ip, ts) VALUES (?, ?)').bind(key, now),
     env.DB.prepare('DELETE FROM attempts WHERE ts < ?').bind(now - 3600000),
   ]);
-  return Number((row && row.c) || 0) >= 20;
+  return Number((row && row.c) || 0) >= limit;
 }
 
-async function readJson(request) {
-  if (Number(request.headers.get('content-length') || 0) > 4096) return null;
+async function readJson(request, max = 4096) {
+  if (Number(request.headers.get('content-length') || 0) > max) return null;
   try {
     const body = await request.json();
     return body && typeof body === 'object' ? body : null;
@@ -372,7 +377,7 @@ async function handleApi(request, env, url, path) {
     }
 
     if (path === '/api/auth/signup' && method === 'POST') {
-      if (await throttled(env, request)) return json({ error: 'too_many_attempts' }, 429);
+      if (await throttled(env, clientIp(request), 20)) return json({ error: 'too_many_attempts' }, 429);
       const body = await readJson(request);
       if (!body) return json({ error: 'generic' }, 400);
       const email = String(body.email || '').trim().toLowerCase();
@@ -398,7 +403,7 @@ async function handleApi(request, env, url, path) {
     }
 
     if (path === '/api/auth/login' && method === 'POST') {
-      if (await throttled(env, request)) return json({ error: 'too_many_attempts' }, 429);
+      if (await throttled(env, clientIp(request), 20)) return json({ error: 'too_many_attempts' }, 429);
       const body = await readJson(request);
       if (!body) return json({ error: 'generic' }, 400);
       const email = String(body.email || '').trim().toLowerCase();
@@ -468,6 +473,114 @@ async function handleApi(request, env, url, path) {
       await env.DB
         .prepare('DELETE FROM ratings WHERE user_id = ? AND media_type = ? AND media_id = ?')
         .bind(user.id, m.type, m.id)
+        .run();
+      return json({ ok: true });
+    }
+
+    /* ---------- المراجعات ---------- */
+
+    if (path === '/api/crdb/reviews' && method === 'GET') {
+      const m = parseMedia(url.searchParams.get('type'), url.searchParams.get('id'));
+      if (!m) return json({ error: 'bad_request' }, 400);
+      const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '10', 10) || 10, 1), 50);
+      const user = await currentUser(env, request);
+      const uid = user ? user.id : 0;
+      const visible = '(r.user_id = ? OR (SELECT COUNT(*) FROM review_reports x WHERE x.review_id = r.id) < ?)';
+      const rows = await env.DB
+        .prepare(
+          `SELECT r.id, r.user_id, r.body, r.spoiler, r.created_at, u.name, rt.rating FROM reviews r JOIN users u ON u.id = r.user_id LEFT JOIN ratings rt ON rt.user_id = r.user_id AND rt.media_type = r.media_type AND rt.media_id = r.media_id WHERE r.media_type = ? AND r.media_id = ? AND ${visible} ORDER BY r.created_at DESC LIMIT ?`,
+        )
+        .bind(m.type, m.id, uid, REPORT_HIDE, limit + 1)
+        .all();
+      const total = await env.DB
+        .prepare(`SELECT COUNT(*) AS c FROM reviews r WHERE r.media_type = ? AND r.media_id = ? AND ${visible}`)
+        .bind(m.type, m.id, uid, REPORT_HIDE)
+        .first();
+      let mine = null;
+      if (user) {
+        const own = await env.DB
+          .prepare('SELECT body, spoiler FROM reviews WHERE user_id = ? AND media_type = ? AND media_id = ?')
+          .bind(user.id, m.type, m.id)
+          .first();
+        if (own) mine = { body: own.body, spoiler: !!own.spoiler };
+      }
+      const list = rows.results || [];
+      return json({
+        items: list.slice(0, limit).map((r) => ({
+          id: r.id,
+          name: r.name,
+          body: r.body,
+          spoiler: !!r.spoiler,
+          created_at: r.created_at,
+          rating: r.rating == null ? null : r.rating,
+          mine: r.user_id === uid,
+        })),
+        hasMore: list.length > limit,
+        total: total ? Number(total.c) : 0,
+        mine,
+      });
+    }
+
+    if (path === '/api/crdb/review' && method === 'POST') {
+      const user = await currentUser(env, request);
+      if (!user) return json({ error: 'unauthorized' }, 401);
+      if (await throttled(env, `u:${user.id}`, 10)) return json({ error: 'too_many_attempts' }, 429);
+      const body = await readJson(request, 16384);
+      const m = body && parseMedia(body.type, body.id);
+      if (!m) return json({ error: 'bad_request' }, 400);
+      const text = String(body.body || '')
+        .replace(/\r\n?/g, '\n')
+        .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+      if (text.length < 10) return json({ error: 'body_too_short' }, 400);
+      if (text.length > 3000) return json({ error: 'body_too_long' }, 400);
+      try {
+        await tmdbGet(env, `/${m.type}/${m.id}`);
+      } catch (e) {
+        if (e && e.status === 404) return json({ error: 'not_found' }, 404);
+      }
+      const now = Date.now();
+      await env.DB
+        .prepare(
+          'INSERT INTO reviews (user_id, media_type, media_id, body, spoiler, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, media_type, media_id) DO UPDATE SET body = excluded.body, spoiler = excluded.spoiler, updated_at = excluded.updated_at',
+        )
+        .bind(user.id, m.type, m.id, text, body.spoiler === true ? 1 : 0, now, now)
+        .run();
+      return json({ ok: true });
+    }
+
+    if (path === '/api/crdb/review' && method === 'DELETE') {
+      const user = await currentUser(env, request);
+      if (!user) return json({ error: 'unauthorized' }, 401);
+      const m = parseMedia(url.searchParams.get('type'), url.searchParams.get('id'));
+      if (!m) return json({ error: 'bad_request' }, 400);
+      const row = await env.DB
+        .prepare('SELECT id FROM reviews WHERE user_id = ? AND media_type = ? AND media_id = ?')
+        .bind(user.id, m.type, m.id)
+        .first();
+      if (row) {
+        await env.DB.batch([
+          env.DB.prepare('DELETE FROM review_reports WHERE review_id = ?').bind(row.id),
+          env.DB.prepare('DELETE FROM reviews WHERE id = ?').bind(row.id),
+        ]);
+      }
+      return json({ ok: true });
+    }
+
+    if (path === '/api/crdb/review/report' && method === 'POST') {
+      const user = await currentUser(env, request);
+      if (!user) return json({ error: 'unauthorized' }, 401);
+      if (await throttled(env, `r:${user.id}`, 20)) return json({ error: 'too_many_attempts' }, 429);
+      const body = await readJson(request);
+      const reviewId = body ? Number(body.reviewId) : NaN;
+      if (!Number.isInteger(reviewId) || reviewId < 1) return json({ error: 'bad_request' }, 400);
+      const target = await env.DB.prepare('SELECT user_id FROM reviews WHERE id = ?').bind(reviewId).first();
+      if (!target) return json({ error: 'not_found' }, 404);
+      if (target.user_id === user.id) return json({ error: 'bad_request' }, 400);
+      await env.DB
+        .prepare('INSERT OR IGNORE INTO review_reports (review_id, user_id, created_at) VALUES (?, ?, ?)')
+        .bind(reviewId, user.id, Date.now())
         .run();
       return json({ ok: true });
     }
