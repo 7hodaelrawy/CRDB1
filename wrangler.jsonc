@@ -20,7 +20,10 @@
       "/top",
       "/calendar",
       "/watchlist",
-      "/search"
+      "/search",
+      "/about",
+      "/privacy",
+      "/terms"
     ]
   },
   "d1_databases": [
