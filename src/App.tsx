@@ -14,6 +14,10 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { useWatchlist, type SavedItem } from '@/watchlist';
 import '../src/index.css';
+import './crdb.css';
+
+// بريد التواصل اللي هيظهر في صفحات الخصوصية والشروط. سيبه فاضي لو مش عايز تعرضه.
+const CONTACT_EMAIL = '';
 
 const client = new QueryClient();
 
@@ -103,10 +107,75 @@ const baseCopy = {
   ar: { home: 'اكتشف', movies: 'أفلام', tv: 'مسلسلات', search: 'بحث', tagline: 'حكايتك القادمة تبدأ هنا.', heroEyebrow: 'مشاهدتك القادمة تبدأ هنا', explore: 'اكتشف العمل', trending: 'حديث الجمهور', trendingSub: 'حكايات يشاهدها الناس الآن', moviesTitle: 'أفلام تستحق وقتك', tvTitle: 'مسلسلات تستحق المتابعة', people: 'وجوه وراء الحكايات', browse: 'تصفّح', films: 'أفلام', shows: 'مسلسلات', topRated: 'الأعلى تقييماً', newest: 'الأحدث', popular: 'الأكثر رواجاً', sort: 'ترتيب حسب', genre: 'كل التصنيفات', year: 'كل السنوات', rating: 'أي تقييم', country: 'رمز الدولة', results: 'أعمال', noResults: 'لم نعثر على أعمال', noResultsSub: 'جرّب تغيير الفلاتر أو استكشاف تصنيف آخر.', retry: 'حاول مجدداً', searchTitle: 'ابحث عن الحكاية كاملة', searchSub: 'أفلام ومسلسلات والأشخاص الذين يمنحونها الحياة.', searchPlaceholder: 'ابحث عن عمل أو ممثل أو مخرج…', all: 'الكل', titles: 'الأعمال', cast: 'الأشخاص', overview: 'القصة', castTitle: 'طاقم التمثيل', crew: 'فريق العمل', details: 'التفاصيل', release: 'تاريخ الإصدار', runtime: 'المدة', status: 'الحالة', language: 'اللغة الأصلية', images: 'صور ومشاهد', trailer: 'شاهد الإعلان', recommendations: 'قد يعجبك أيضاً', seasons: 'المواسم', season: 'الموسم', episodes: 'الحلقات', biography: 'نبذة', filmography: 'أعمال بارزة', born: 'تاريخ الميلاد', birthplace: 'مكان الميلاد', knownFor: 'معروف بـ', loading: 'جارٍ العثور على التفاصيل…', failed: 'تعذّر تحميل هذه الصفحة.', back: 'العودة', emptyBio: 'لا تتوفر نبذة بعد.', browseMore: 'تابع الاستكشاف', page: 'صفحة', previous: 'السابق', next: 'التالي', noImage: 'لا تتوفر صورة', castRole: 'بدور', watchProviders: 'أماكن المشاهدة', providersEmpty: 'تفاصيل المشاهدة غير متاحة.', languageLabel: 'English', verified: 'معلومات موثوقة. بلا تعقيد.', allTime: 'طريقة أسهل لاختيار ما تشاهده.', watchlist: 'قائمتي', watchlistSub: 'أعمال حفظتها لتشاهدها لاحقاً، وتُحفظ على هذا الجهاز.', watchlistEmpty: 'قائمتك فارغة', watchlistEmptySub: 'اضغط على علامة الحفظ في أي عمل ليظهر هنا.', addWatchlist: 'أضف إلى قائمتي', inWatchlist: 'في قائمتك', wtwStream: 'اشتراك', wtwFree: 'مجاناً', wtwRent: 'إيجار', wtwBuy: 'شراء', wtwNoCountry: 'لا توجد منصات لبلدك حتى الآن. المعروض لـ', wtwCredit: 'بيانات المشاهدة من JustWatch', wtwAll: 'كل الخيارات', calendar: 'التقويم', calendarTitle: 'قريباً في السينما', calendarSub: 'الأفلام القادمة حسب تاريخ العرض مع عدّاد تنازلي لكل فيلم.', calendarNote: 'التواريخ حسب TMDB وقد تختلف من بلد لآخر.', addToCalendar: 'أضف إلى تقويمك', episodeRatings: 'تقييمات الحلقات', epRatingsSub: 'كل حلقة بتقييم الجمهور. مرّر على أي خلية للتفاصيل.', epBest: 'أفضل حلقة', epWorst: 'أقل حلقة تقييماً', epAvg: 'المتوسط', epSeasonShort: 'م', epNote: 'التقييمات من جمهور TMDB، والحلقات قليلة الأصوات قد تكون غير دقيقة.', top: 'الأفضل ٢٥٠', topTitle: 'أفضل ٢٥٠ عملاً بتقييم الجمهور', topSub: 'الترتيب بتقييم موزون، فالعمل لازم يحصل على أصوات كتير مش درجة عالية بس.', topNote: 'الترتيب محسوب من CRDb بناءً على أصوات جمهور TMDB.', votes: 'صوت', showMore: 'عرض المزيد' }
 };
 const extraCopy = {
-  en: { signIn: 'Sign in', signUp: 'Create account', signOut: 'Sign out', email: 'Email', password: 'Password', displayName: 'Display name', authLoginTitle: 'Welcome back', authSignupTitle: 'Join CRDb', authLoginSub: 'Sign in to rate titles and keep your profile.', authSignupSub: 'Create an account to rate movies and series.', authNoAccount: 'New here?', authHaveAccount: 'Already have an account?', authNote: 'Your email stays private. Your display name, ratings and reviews are public.', authPasswordHint: 'At least 8 characters', authErrInvalid: 'Wrong email or password.', authErrTaken: 'This email is already registered.', authErrWeak: 'Password must be 8 to 128 characters.', authErrEmail: 'Please enter a valid email.', authErrName: 'Display name must be 2 to 30 characters.', authErrMany: 'Too many attempts. Try again in a few minutes.', authErrGeneric: 'Something went wrong. Please try again.', crdbRating: 'CRDb rating', rateThis: 'Tap a star to rate', yourRating: 'Your rating', removeRating: 'Remove', signInToRate: 'Sign in to rate', rateBeFirst: 'Be the first to rate', close: 'Close', reviews: 'Reviews', rvRules: 'Be respectful and mark spoilers. Abusive reviews can be reported and hidden. Your display name is public.', rvPlaceholder: 'What did you think? Write in any language.', rvSpoilerCheck: 'This review contains spoilers', rvSubmit: 'Post review', rvSave: 'Save changes', rvCancel: 'Cancel', rvEdit: 'Edit your review', rvDelete: 'Delete', rvConfirmDelete: 'Delete your review?', rvSpoilerWarn: 'Spoiler warning', rvSpoilerTag: 'Spoiler', rvReveal: 'Tap to reveal', rvEmpty: 'No reviews yet. Be the first to share what you think.', rvSignIn: 'Sign in to write a review', rvMore: 'Show more reviews', rvReport: 'Report', rvReported: 'Reported', rvErrShort: 'Write at least 10 characters.', rvErrMany: 'Too many requests. Try again in a few minutes.', myProfile: 'My profile', memberSince: 'Member since', pfRatings: 'Ratings', pfAvg: 'Average rating', pfReviews: 'Reviews', pfNoRatings: 'No ratings yet.', pfNoReviews: 'No reviews yet.', pfNotFound: 'This profile doesn’t exist.', pfPublic: 'Profiles are public: the display name, ratings and reviews are visible to everyone. The email is never shown.', pfLatest: 'Latest ratings', pfLatestReviews: 'Latest reviews', delTitle: 'Delete account', delWarn: 'This permanently deletes your account, ratings and reviews. It can’t be undone.', delBtn: 'Delete my account', delConfirm: 'Yes, delete everything', delPwd: 'Enter your password to confirm' },
-  ar: { signIn: 'تسجيل الدخول', signUp: 'إنشاء حساب', signOut: 'تسجيل الخروج', email: 'البريد الإلكتروني', password: 'كلمة المرور', displayName: 'الاسم الظاهر', authLoginTitle: 'أهلاً بعودتك', authSignupTitle: 'انضم إلى CRDb', authLoginSub: 'سجّل الدخول لتقيّم الأعمال وتحتفظ بملفك.', authSignupSub: 'أنشئ حساباً لتقيّم الأفلام والمسلسلات.', authNoAccount: 'جديد هنا؟', authHaveAccount: 'عندك حساب؟', authNote: 'بريدك يفضل خاص. اسمك الظاهر وتقييماتك ومراجعاتك معروضة للجميع.', authPasswordHint: '8 أحرف على الأقل', authErrInvalid: 'البريد أو كلمة المرور غير صحيحة.', authErrTaken: 'هذا البريد مسجّل من قبل.', authErrWeak: 'كلمة المرور لازم تكون من 8 إلى 128 حرفاً.', authErrEmail: 'اكتب بريداً إلكترونياً صحيحاً.', authErrName: 'الاسم الظاهر من 2 إلى 30 حرفاً.', authErrMany: 'محاولات كثيرة. جرّب بعد دقايق.', authErrGeneric: 'حصل خطأ. جرّب مرة تانية.', crdbRating: 'تقييم CRDb', rateThis: 'اضغط على نجمة لتقييم العمل', yourRating: 'تقييمك', removeRating: 'إزالة', signInToRate: 'سجّل الدخول للتقييم', rateBeFirst: 'كن أول من يقيّم', close: 'إغلاق', reviews: 'المراجعات', rvRules: 'التزم بالاحترام وعلّم الحرق. المراجعات المسيئة يمكن الإبلاغ عنها وإخفاؤها. اسمك الظاهر معروض للجميع.', rvPlaceholder: 'إيه رأيك؟ اكتب بأي لغة.', rvSpoilerCheck: 'المراجعة دي فيها حرق للأحداث', rvSubmit: 'انشر المراجعة', rvSave: 'احفظ التعديلات', rvCancel: 'إلغاء', rvEdit: 'عدّل مراجعتك', rvDelete: 'حذف', rvConfirmDelete: 'تحذف مراجعتك؟', rvSpoilerWarn: 'تحذير: حرق للأحداث', rvSpoilerTag: 'حرق', rvReveal: 'اضغط للإظهار', rvEmpty: 'مفيش مراجعات لسه. كن أول من يشاركنا رأيه.', rvSignIn: 'سجّل الدخول لتكتب مراجعة', rvMore: 'عرض مراجعات أكتر', rvReport: 'إبلاغ', rvReported: 'تم الإبلاغ', rvErrShort: 'اكتب 10 أحرف على الأقل.', rvErrMany: 'طلبات كتير. جرّب بعد دقايق.', myProfile: 'ملفي', memberSince: 'عضو منذ', pfRatings: 'التقييمات', pfAvg: 'متوسط التقييم', pfReviews: 'المراجعات', pfNoRatings: 'مفيش تقييمات لسه.', pfNoReviews: 'مفيش مراجعات لسه.', pfNotFound: 'الملف ده مش موجود.', pfPublic: 'الملفات الشخصية عامة: الاسم الظاهر والتقييمات والمراجعات يشوفها الجميع. البريد الإلكتروني ما بيظهرش أبداً.', pfLatest: 'آخر التقييمات', pfLatestReviews: 'آخر المراجعات', delTitle: 'حذف الحساب', delWarn: 'ده بيحذف حسابك وتقييماتك ومراجعاتك نهائياً، ومفيش رجوع.', delBtn: 'احذف حسابي', delConfirm: 'أيوه، احذف كل حاجة', delPwd: 'اكتب كلمة المرور للتأكيد' }
+  en: { signIn: 'Sign in', signUp: 'Create account', signOut: 'Sign out', email: 'Email', password: 'Password', displayName: 'Display name', authLoginTitle: 'Welcome back', authSignupTitle: 'Join CRDb', authLoginSub: 'Sign in to rate titles and keep your profile.', authSignupSub: 'Create an account to rate movies and series.', authNoAccount: 'New here?', authHaveAccount: 'Already have an account?', authNote: 'Your email stays private. Your display name, ratings and reviews are public.', authPasswordHint: 'At least 8 characters', authErrInvalid: 'Wrong email or password.', authErrTaken: 'This email is already registered.', authErrWeak: 'Password must be 8 to 128 characters.', authErrEmail: 'Please enter a valid email.', authErrName: 'Display name must be 2 to 30 characters.', authErrMany: 'Too many attempts. Try again in a few minutes.', authErrGeneric: 'Something went wrong. Please try again.', crdbRating: 'CRDb rating', rateThis: 'Tap a star to rate', yourRating: 'Your rating', removeRating: 'Remove', signInToRate: 'Sign in to rate', rateBeFirst: 'Be the first to rate', close: 'Close', reviews: 'Reviews', rvRules: 'Be respectful and mark spoilers. Abusive reviews can be reported and hidden. Your display name is public.', rvPlaceholder: 'What did you think? Write in any language.', rvSpoilerCheck: 'This review contains spoilers', rvSubmit: 'Post review', rvSave: 'Save changes', rvCancel: 'Cancel', rvEdit: 'Edit your review', rvDelete: 'Delete', rvConfirmDelete: 'Delete your review?', rvSpoilerWarn: 'Spoiler warning', rvSpoilerTag: 'Spoiler', rvReveal: 'Tap to reveal', rvEmpty: 'No reviews yet. Be the first to share what you think.', rvSignIn: 'Sign in to write a review', rvMore: 'Show more reviews', rvReport: 'Report', rvReported: 'Reported', rvErrShort: 'Write at least 10 characters.', rvErrMany: 'Too many requests. Try again in a few minutes.', myProfile: 'My profile', memberSince: 'Member since', pfRatings: 'Ratings', pfAvg: 'Average rating', pfReviews: 'Reviews', pfNoRatings: 'No ratings yet.', pfNoReviews: 'No reviews yet.', pfNotFound: 'This profile doesn’t exist.', pfPublic: 'Profiles are public: the display name, ratings and reviews are visible to everyone. The email is never shown.', pfLatest: 'Latest ratings', pfLatestReviews: 'Latest reviews', delTitle: 'Delete account', delWarn: 'This permanently deletes your account, ratings and reviews. It can’t be undone.', delBtn: 'Delete my account', delConfirm: 'Yes, delete everything', delPwd: 'Enter your password to confirm', footerAbout: 'About', footerPrivacy: 'Privacy', footerTerms: 'Terms', tmdbCredit: 'This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming data by JustWatch.', contactUs: 'Contact' },
+  ar: { signIn: 'تسجيل الدخول', signUp: 'إنشاء حساب', signOut: 'تسجيل الخروج', email: 'البريد الإلكتروني', password: 'كلمة المرور', displayName: 'الاسم الظاهر', authLoginTitle: 'أهلاً بعودتك', authSignupTitle: 'انضم إلى CRDb', authLoginSub: 'سجّل الدخول لتقيّم الأعمال وتحتفظ بملفك.', authSignupSub: 'أنشئ حساباً لتقيّم الأفلام والمسلسلات.', authNoAccount: 'جديد هنا؟', authHaveAccount: 'عندك حساب؟', authNote: 'بريدك يفضل خاص. اسمك الظاهر وتقييماتك ومراجعاتك معروضة للجميع.', authPasswordHint: '8 أحرف على الأقل', authErrInvalid: 'البريد أو كلمة المرور غير صحيحة.', authErrTaken: 'هذا البريد مسجّل من قبل.', authErrWeak: 'كلمة المرور لازم تكون من 8 إلى 128 حرفاً.', authErrEmail: 'اكتب بريداً إلكترونياً صحيحاً.', authErrName: 'الاسم الظاهر من 2 إلى 30 حرفاً.', authErrMany: 'محاولات كثيرة. جرّب بعد دقايق.', authErrGeneric: 'حصل خطأ. جرّب مرة تانية.', crdbRating: 'تقييم CRDb', rateThis: 'اضغط على نجمة لتقييم العمل', yourRating: 'تقييمك', removeRating: 'إزالة', signInToRate: 'سجّل الدخول للتقييم', rateBeFirst: 'كن أول من يقيّم', close: 'إغلاق', reviews: 'المراجعات', rvRules: 'التزم بالاحترام وعلّم الحرق. المراجعات المسيئة يمكن الإبلاغ عنها وإخفاؤها. اسمك الظاهر معروض للجميع.', rvPlaceholder: 'إيه رأيك؟ اكتب بأي لغة.', rvSpoilerCheck: 'المراجعة دي فيها حرق للأحداث', rvSubmit: 'انشر المراجعة', rvSave: 'احفظ التعديلات', rvCancel: 'إلغاء', rvEdit: 'عدّل مراجعتك', rvDelete: 'حذف', rvConfirmDelete: 'تحذف مراجعتك؟', rvSpoilerWarn: 'تحذير: حرق للأحداث', rvSpoilerTag: 'حرق', rvReveal: 'اضغط للإظهار', rvEmpty: 'مفيش مراجعات لسه. كن أول من يشاركنا رأيه.', rvSignIn: 'سجّل الدخول لتكتب مراجعة', rvMore: 'عرض مراجعات أكتر', rvReport: 'إبلاغ', rvReported: 'تم الإبلاغ', rvErrShort: 'اكتب 10 أحرف على الأقل.', rvErrMany: 'طلبات كتير. جرّب بعد دقايق.', myProfile: 'ملفي', memberSince: 'عضو منذ', pfRatings: 'التقييمات', pfAvg: 'متوسط التقييم', pfReviews: 'المراجعات', pfNoRatings: 'مفيش تقييمات لسه.', pfNoReviews: 'مفيش مراجعات لسه.', pfNotFound: 'الملف ده مش موجود.', pfPublic: 'الملفات الشخصية عامة: الاسم الظاهر والتقييمات والمراجعات يشوفها الجميع. البريد الإلكتروني ما بيظهرش أبداً.', pfLatest: 'آخر التقييمات', pfLatestReviews: 'آخر المراجعات', delTitle: 'حذف الحساب', delWarn: 'ده بيحذف حسابك وتقييماتك ومراجعاتك نهائياً، ومفيش رجوع.', delBtn: 'احذف حسابي', delConfirm: 'أيوه، احذف كل حاجة', delPwd: 'اكتب كلمة المرور للتأكيد', footerAbout: 'عن الموقع', footerPrivacy: 'الخصوصية', footerTerms: 'الشروط', tmdbCredit: 'This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming data by JustWatch.', contactUs: 'تواصل معنا' }
 };
 const copy = { en: { ...baseCopy.en, ...extraCopy.en }, ar: { ...baseCopy.ar, ...extraCopy.ar } };
+
+type LegalKey = 'about' | 'privacy' | 'terms';
+type LegalDoc = { title: string; sections: Array<[string, string[]]> };
+const legalDocs: Record<Lang, Record<LegalKey, LegalDoc>> = {
+  en: {
+    about: {
+      title: 'About CRDb',
+      sections: [
+        ['What is CRDb', ['CRDb is a movie and TV discovery site: new releases, upcoming titles, ratings, trailers, cast, and where to watch in your country.', 'Titles, images and viewer scores come from TMDB. Streaming availability comes from JustWatch through TMDB. CRDb ratings and reviews are written by members of this site.']],
+        ['Credits', ['This product uses the TMDB API but is not endorsed or certified by TMDB.', 'Streaming availability data is provided by JustWatch.']],
+      ],
+    },
+    privacy: {
+      title: 'Privacy notice',
+      sections: [
+        ['What we collect', ['When you create an account: your email, a display name and a password. The password is stored only as a salted hash, never in plain text.', 'What you create: your ratings and reviews.', 'A session cookie that keeps you signed in for up to 30 days. It is strictly necessary and is not used for tracking.']],
+        ['What is public', ['Your display name, ratings and reviews are public, including on your profile page. Your email is never shown. Choose a display name you are comfortable sharing.']],
+        ['Stored on your device', ['Your language, theme, country choice and watchlist are saved in your browser’s local storage. They stay on your device.']],
+        ['Third parties', ['Pages, images and data are loaded through our servers from TMDB. When you play a trailer, YouTube’s privacy-enhanced player loads, and YouTube may receive your IP address and set its own cookies. The site runs on Cloudflare, which processes requests and hosts our database.']],
+        ['Your control', ['You can edit or delete your ratings and reviews at any time, and delete your account from your profile page. Deleting your account permanently removes your email, ratings, reviews and sessions.']],
+        ['Ads and analytics', ['CRDb does not add advertising or analytics trackers. If that changes, this notice will be updated first.']],
+      ],
+    },
+    terms: {
+      title: 'Terms of use',
+      sections: [
+        ['Using CRDb', ['CRDb is provided as is, without warranties. Information comes from third parties and can be incomplete or wrong.', 'You are responsible for your account and for keeping your password safe.']],
+        ['Your content', ['You own what you write. By posting a review you allow CRDb to display it on the site.', 'Do not post anything unlawful, abusive, hateful or spam, or anything that infringes others’ rights. Mark spoilers.']],
+        ['Moderation', ['We may hide or remove content and suspend accounts that break these rules. Reviews reported by several members are hidden automatically.']],
+        ['Accounts', ['You can delete your account at any time from your profile. We can suspend or delete accounts that abuse the service.']],
+        ['Changes', ['We may update these terms and the privacy notice as the site grows.']],
+      ],
+    },
+  },
+  ar: {
+    about: {
+      title: 'عن CRDb',
+      sections: [
+        ['ما هو CRDb', ['CRDb موقع لاكتشاف الأفلام والمسلسلات: أحدث الإصدارات والأعمال القادمة والتقييمات والإعلانات وطاقم التمثيل وأماكن المشاهدة في بلدك.', 'العناوين والصور وتقييمات الجمهور من TMDB. بيانات المشاهدة من JustWatch عن طريق TMDB. تقييمات ومراجعات CRDb يكتبها أعضاء الموقع.']],
+        ['الإسناد', ['This product uses the TMDB API but is not endorsed or certified by TMDB.', 'بيانات أماكن المشاهدة مقدّمة من JustWatch.']],
+      ],
+    },
+    privacy: {
+      title: 'سياسة الخصوصية',
+      sections: [
+        ['ما الذي نجمعه', ['عند إنشاء حساب: بريدك الإلكتروني واسم ظاهر وكلمة مرور. كلمة المرور بتتخزّن كبصمة مشفّرة (hash) مع قيمة عشوائية، ومش بتتخزّن كنص أبداً.', 'اللي بتكتبه: تقييماتك ومراجعاتك.', 'كوكي جلسة بيخليك مسجّل دخول لحد 30 يوم. ده ضروري لتشغيل الحساب وما بنستخدمهوش في التتبع.']],
+        ['ما هو عام', ['اسمك الظاهر وتقييماتك ومراجعاتك معروضة للجميع، ومعاها صفحة ملفك. بريدك ما بيظهرش أبداً. اختار اسماً مرتاح إنه يبان.']],
+        ['ما يتخزّن على جهازك', ['اللغة والوضع الداكن واختيار البلد وقائمة المشاهدة بتتحفظ في تخزين المتصفح، وبتفضل على جهازك.']],
+        ['أطراف أخرى', ['الصفحات والصور والبيانات بتتحمّل عن طريق سيرفراتنا من TMDB. لما تشغّل إعلان، بيتحمّل مشغّل يوتيوب المحسّن للخصوصية، ويوتيوب ممكن يستلم عنوان IP الخاص بك ويحط كوكيز بتاعته. الموقع شغال على Cloudflare اللي بتعالج الطلبات وبتستضيف قاعدة بياناتنا.']],
+        ['تحكّمك في بياناتك', ['تقدر تعدّل أو تحذف تقييماتك ومراجعاتك في أي وقت، وتحذف حسابك من صفحة ملفك. حذف الحساب بيمسح بريدك وتقييماتك ومراجعاتك وجلساتك نهائياً.']],
+        ['الإعلانات والتحليلات', ['CRDb ما بيضيفش إعلانات ولا أدوات تتبع أو تحليلات. لو ده اتغيّر هنحدّث السياسة الأول.']],
+      ],
+    },
+    terms: {
+      title: 'شروط الاستخدام',
+      sections: [
+        ['استخدام CRDb', ['CRDb بيتقدّم كما هو من غير ضمانات. المعلومات جاية من أطراف تانية وممكن تكون ناقصة أو غلط.', 'إنت مسؤول عن حسابك وعن حماية كلمة مرورك.']],
+        ['محتواك', ['اللي بتكتبه ملكك. لما تنشر مراجعة، بتسمح لـ CRDb يعرضها على الموقع.', 'ممنوع نشر أي محتوى مخالف للقانون أو مسيء أو فيه كراهية أو سبام، أو ينتهك حقوق غيرك. علّم الحرق.']],
+        ['الإشراف', ['ممكن نخفي أو نحذف محتوى ونوقف حسابات بتخالف القواعد دي. المراجعات اللي بيبلّغ عنها عدة أعضاء بتتخفّى تلقائياً.']],
+        ['الحسابات', ['تقدر تحذف حسابك في أي وقت من ملفك. ممكن نوقف أو نحذف الحسابات اللي بتسيء استخدام الخدمة.']],
+        ['التغييرات', ['ممكن نحدّث الشروط وسياسة الخصوصية مع تطوّر الموقع.']],
+      ],
+    },
+  },
+};
 
 type Preferences = { lang: Lang; setLang: (lang: Lang) => void; dark: boolean; setDark: (dark: boolean) => void; t: typeof copy.en };
 const PreferenceContext = createContext<Preferences | null>(null);
@@ -431,7 +500,13 @@ function Shell({ children }: { children: ReactNode }) {
     </header>
     <main>{children}</main>
     <nav className="mobile-nav">{nav.concat([{ path: '/search', label: pref.t.search, icon: Search }]).map(n => <Link key={n.path} href={n.path} className={loc === n.path ? 'active' : ''} data-testid={`mobile-nav-${n.path.slice(1) || 'home'}`}><n.icon size={17} /><span>{n.label}</span></Link>)}</nav>
-    <footer className="footer"><img src={pref.dark ? '/brand/logo.svg' : '/brand/logo-on-light.svg'} alt="CRDb" /><span>{pref.t.verified} · {pref.t.allTime}</span><span>© CRDb</span></footer>
+    <footer className="footer">
+      <img src={pref.dark ? '/brand/logo.svg' : '/brand/logo-on-light.svg'} alt="CRDb" />
+      <span>{pref.t.verified} · {pref.t.allTime}</span>
+      <nav className="footer-links"><Link href="/about">{pref.t.footerAbout}</Link><Link href="/privacy">{pref.t.footerPrivacy}</Link><Link href="/terms">{pref.t.footerTerms}</Link></nav>
+      <span>© CRDb</span>
+      <p className="footer-credit">{pref.t.tmdbCredit}</p>
+    </footer>
   </div>;
 }
 
@@ -912,6 +987,23 @@ function ProfilePage() {
   </PageFrame>;
 }
 
+function LegalPage({ doc }: { doc: LegalKey }) {
+  const { lang, t } = usePreferences();
+  const d = legalDocs[lang][doc];
+  usePageMeta(d.title, d.sections[0]?.[1][0]);
+  return <PageFrame>
+    <div className="eyebrow">CRDb</div>
+    <h1 className="page-title">{d.title}</h1>
+    <div className="legal">
+      {d.sections.map(([heading, paragraphs]) => <section key={heading}>
+        <h2>{heading}</h2>
+        {paragraphs.map(text => <p key={text}>{text}</p>)}
+      </section>)}
+      {CONTACT_EMAIL && <section><h2>{t.contactUs}</h2><p><a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p></section>}
+    </div>
+  </PageFrame>;
+}
+
 function WatchlistPage() {
   const { t } = usePreferences();
   usePageMeta(t.watchlist, t.watchlistSub);
@@ -931,6 +1023,9 @@ function Router() {
     <Route path="/top" component={TopPage} />
     <Route path="/calendar" component={CalendarPage} />
     <Route path="/watchlist" component={WatchlistPage} />
+    <Route path="/about"><LegalPage doc="about" /></Route>
+    <Route path="/privacy"><LegalPage doc="privacy" /></Route>
+    <Route path="/terms"><LegalPage doc="terms" /></Route>
     <Route path="/u/:id" component={ProfilePage} />
     <Route path="/movie/:id"><DetailPage kind="movie" /></Route>
     <Route path="/tv/:id"><DetailPage kind="tv" /></Route>
