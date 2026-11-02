@@ -46,6 +46,18 @@ const PAGES = {
     en: ['Upcoming movies calendar — CRDb', 'Movies coming to theaters by release date, with a countdown for each one.'],
     ar: ['تقويم الأفلام القادمة — CRDb', 'الأفلام القادمة إلى السينما حسب تاريخ العرض مع عدّاد تنازلي لكل فيلم.'],
   },
+  '/about': {
+    en: ['About CRDb', 'What CRDb is, where its data comes from, and credits.'],
+    ar: ['عن CRDb', 'ما هو CRDb ومن أين تأتي بياناته والإسناد.'],
+  },
+  '/privacy': {
+    en: ['Privacy notice — CRDb', 'What CRDb collects, what is public, and how you can delete your data.'],
+    ar: ['سياسة الخصوصية — CRDb', 'ما الذي يجمعه CRDb وما هو عام وكيف تحذف بياناتك.'],
+  },
+  '/terms': {
+    en: ['Terms of use — CRDb', 'The rules for using CRDb and posting reviews.'],
+    ar: ['شروط الاستخدام — CRDb', 'قواعد استخدام CRDb ونشر المراجعات.'],
+  },
   '/watchlist': {
     en: ['Your watchlist — CRDb', 'Titles you saved to watch later.'],
     ar: ['قائمتي — CRDb', 'أعمال حفظتها لتشاهدها لاحقاً.'],
@@ -209,7 +221,7 @@ async function renderPerson(request, env, id, lang) {
 }
 
 async function sitemap(env, origin) {
-  const statics = ['/', '/movies', '/tv', '/top', '/calendar'];
+  const statics = ['/', '/movies', '/tv', '/top', '/calendar', '/about', '/privacy', '/terms'];
   const jobs = [];
   for (const kind of ['movie', 'tv']) {
     for (const list of ['top_rated', 'popular']) {
